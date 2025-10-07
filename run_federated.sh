@@ -47,6 +47,9 @@ if [[ $SLURM_PROCID -eq 0 ]]; then
     bash weights/get_weights.sh yolov7
 fi
 
+
+
+
 # Run federated learning experiment (see main.py for more details on the settings)
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 srun --cpus-per-task=$SLURM_CPUS_PER_TASK python federated/main.py \
