@@ -275,7 +275,7 @@ class Server(Node):
 
     def initialize_model(self, weights: str) -> None:
         """Initialize the checkpoint from a pretrained weights file."""
-        self._ckpt = torch.load(weights, map_location=self.device)
+        self._ckpt = torch.load(weights, map_location=self.device, weights_only=False)
 
     def get_weights(self, metadata: bool) -> list[tuple[bytes, bytes, bytes]]:
         """Return the weights encrypted with AES, the tag, and the nonce for each client."""
