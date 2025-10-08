@@ -301,6 +301,17 @@ class Server(Node):
             nsamples_list.append(nsamples)
         return state_dicts, nsamples_list
 
+    # def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
+    #     """Compute the pseudo-gradient using the weighted average of the updates received from the clients."""
+    #     n = 0
+    #     for ni in nsamples_list:
+    #         n += ni
+    #     delta_t = copy.deepcopy(self._ckpt['model'].state_dict())
+    #     for key in delta_t.keys():
+    #         delta_it_weighted = [delta_it[key] * (ni / n) for delta_it, ni in zip(updates, nsamples_list)]
+    #         delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
+    #     return delta_t
+    
     def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
         """Compute the pseudo-gradient using the weighted average of the updates received from the clients."""
         n = 0
@@ -308,8 +319,11 @@ class Server(Node):
             n += ni
         delta_t = copy.deepcopy(self._ckpt['model'].state_dict())
         for key in delta_t.keys():
-            delta_it_weighted = [delta_it[key] * (ni / n) for delta_it, ni in zip(updates, nsamples_list)]
-            delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
+            delta_it_weighted = [delta_it[key] * (ni / n) for delta_it, ni in zip(updates, nsamples_list) if key in delta_it]
+            if delta_it_weighted:
+                delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
+            else:
+                delta_t[key] = torch.zeros_like(delta_t[key])
         return delta_t
 
     def __fedavg(self, delta_t: dict) -> dict:
