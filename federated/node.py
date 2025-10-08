@@ -15,7 +15,7 @@ from mpi4py import MPI
 import torch
 import yaml
 
-from models.yolo import Model
+from yolov7.models.yolo import Model
 from utils.torch_utils import intersect_dicts, is_parallel, select_device
 
 
