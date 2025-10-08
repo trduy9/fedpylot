@@ -15,7 +15,8 @@ from mpi4py import MPI
 import torch
 import yaml
 
-from yolov7.models.yolo import Model
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'yolov7'))
+from models.yolo import Model
 from utils.torch_utils import intersect_dicts, is_parallel, select_device
 
 
