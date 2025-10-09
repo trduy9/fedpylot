@@ -505,7 +505,7 @@ class Client(Node):
             begin_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
             torch.save(self._ckpt, begin_weights)
             os.system(f'python {script_path} --resume {begin_weights}')
-        new_ckpt = torch.load(end_weights, map_location=self.device)
+        new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=False)
         # Compute the local update: delta_it = w_t - w_it
         w_it = new_ckpt['model'].state_dict()
         if kround == 0:
