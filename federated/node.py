@@ -338,6 +338,7 @@ class Server(Node):
             else:
                 # Chỉ cảnh báo, không thay đổi gì
                 print(f"[WARN] Key '{key}' not found in any client update.")
+                delta_t[key] = torch.zeros_like(delta_t[key])
 
         return delta_t
 
