@@ -297,7 +297,7 @@ class Server(Node):
 
     def initialize_model(self, weights: str) -> None:
         """Initialize the checkpoint from a pretrained weights file."""
-        self._ckpt = torch.load(weights, map_location=self.device, weights_only=True)
+        self._ckpt = torch.load(weights, map_location=self.device, weights_only=False)
 
     def get_weights(self, metadata: bool) -> list[tuple[bytes, bytes, bytes]]:
         """Return the weights encrypted with AES, the tag, and the nonce for each client."""
@@ -322,17 +322,36 @@ class Server(Node):
             state_dicts.append(state_dict)
             nsamples_list.append(nsamples)
         return state_dicts, nsamples_list
-
+    
     def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
         """Compute the pseudo-gradient using the weighted average of the updates received from the clients."""
-        n = 0
-        for ni in nsamples_list:
-            n += ni
+        n = sum(nsamples_list)
         delta_t = copy.deepcopy(self._ckpt['model'].state_dict())
+
         for key in delta_t.keys():
-            delta_it_weighted = [delta_it[key] * (ni / n) for delta_it, ni in zip(updates, nsamples_list)]
-            delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
+            # Lọc những client có chứa key này
+            valid_updates = [(delta_it[key], ni) for delta_it, ni in zip(updates, nsamples_list) if key in delta_it]
+
+            if valid_updates:
+                delta_it_weighted = [w * (ni / n) for w, ni in valid_updates]
+                delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
+            else:
+                # Chỉ cảnh báo, không thay đổi gì
+                print(f"[WARN] Key '{key}' not found in any client update.")
+
         return delta_t
+
+
+    # def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
+    #     """Compute the pseudo-gradient using the weighted average of the updates received from the clients."""
+    #     n = 0
+    #     for ni in nsamples_list:
+    #         n += ni
+    #     delta_t = copy.deepcopy(self._ckpt['model'].state_dict())
+    #     for key in delta_t.keys():
+    #         delta_it_weighted = [delta_it[key] * (ni / n) for delta_it, ni in zip(updates, nsamples_list)]
+    #         delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
+    #     return delta_t
     
     # def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
     #     """Compute the pseudo-gradient using the weighted average of the updates received from the clients."""
@@ -527,7 +546,7 @@ class Client(Node):
             begin_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
             torch.save(self._ckpt, begin_weights)
             os.system(f'python {script_path} --resume {begin_weights}')
-        new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=True)
+        new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=False)
         # Compute the local update: delta_it = w_t - w_it
         w_it = new_ckpt['model'].state_dict()
         if kround == 0:
