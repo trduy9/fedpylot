@@ -189,28 +189,28 @@ class Node:
 
     def post_init_update(self, data: str, cfg: str, hyp: str, imgsz: int) -> None:
         """Post-initialization update of the model to match the training loop model."""
-        # ckpt = copy.deepcopy(self._ckpt)  # load checkpoint
-        # with open(data) as f:
-        #     data_dict = yaml.load(f, Loader=yaml.SafeLoader)
-        # with open(hyp) as f:
-        #     hyp_dict = yaml.load(f, Loader=yaml.SafeLoader)
-        # nc = int(data_dict['nc'])  # number of classes
-        # model = Model(cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp_dict.get('anchors'))
-        # # model = Model(ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp_dict.get('anchors'))
-        # model = model.to(self.device)
-        # exclude = ['anchor'] if (cfg or hyp_dict.get('anchors')) else []
-        # state_dict = ckpt['model'].float().state_dict()
-        # state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)
-        # model.load_state_dict(state_dict, strict=False)
-        
-        model = self._ckpt['model']  # Dùng model cũ, không tạo mới
-    
+        ckpt = copy.deepcopy(self._ckpt)  # load checkpoint
         with open(data) as f:
             data_dict = yaml.load(f, Loader=yaml.SafeLoader)
         with open(hyp) as f:
             hyp_dict = yaml.load(f, Loader=yaml.SafeLoader)
+        nc = int(data_dict['nc'])  # number of classes
+        model = Model(cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp_dict.get('anchors'))
+        # model = Model(ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp_dict.get('anchors'))
+        model = model.to(self.device)
+        exclude = ['anchor'] if (cfg or hyp_dict.get('anchors')) else []
+        state_dict = ckpt['model'].float().state_dict()
+        state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)
+        model.load_state_dict(state_dict, strict=False)
         
-        nc = int(data_dict['nc'])
+        # model = self._ckpt['model']  # Dùng model cũ, không tạo mới
+    
+        # with open(data) as f:
+        #     data_dict = yaml.load(f, Loader=yaml.SafeLoader)
+        # with open(hyp) as f:
+        #     hyp_dict = yaml.load(f, Loader=yaml.SafeLoader)
+        
+        # nc = int(data_dict['nc'])
         
         # Model parameters
         nl = model.model[-1].nl  # number of detection layers (used for scaling hyp['obj'])
