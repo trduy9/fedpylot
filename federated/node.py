@@ -195,8 +195,8 @@ class Node:
         with open(hyp) as f:
             hyp_dict = yaml.load(f, Loader=yaml.SafeLoader)
         nc = int(data_dict['nc'])  # number of classes
-        # model = Model(cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp_dict.get('anchors'))
-        model = Model(ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp_dict.get('anchors'))
+        model = Model(cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp_dict.get('anchors'))
+        # model = Model(ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp_dict.get('anchors'))
         model = model.to(self.device)
         exclude = ['anchor'] if (cfg or hyp_dict.get('anchors')) else []
         state_dict = ckpt['model'].float().state_dict()
@@ -297,7 +297,7 @@ class Server(Node):
 
     def initialize_model(self, weights: str) -> None:
         """Initialize the checkpoint from a pretrained weights file."""
-        self._ckpt = torch.load(weights, map_location=self.device, weights_only=False)
+        self._ckpt = torch.load(weights, map_location=self.device, weights_only=True)
 
     def get_weights(self, metadata: bool) -> list[tuple[bytes, bytes, bytes]]:
         """Return the weights encrypted with AES, the tag, and the nonce for each client."""
@@ -527,7 +527,7 @@ class Client(Node):
             begin_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
             torch.save(self._ckpt, begin_weights)
             os.system(f'python {script_path} --resume {begin_weights}')
-        new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=False)
+        new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=True)
         # Compute the local update: delta_it = w_t - w_it
         w_it = new_ckpt['model'].state_dict()
         if kround == 0:
