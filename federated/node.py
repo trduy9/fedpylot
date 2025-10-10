@@ -195,7 +195,8 @@ class Node:
         with open(hyp) as f:
             hyp_dict = yaml.load(f, Loader=yaml.SafeLoader)
         nc = int(data_dict['nc'])  # number of classes
-        model = Model(cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp_dict.get('anchors'))
+        # model = Model(cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp_dict.get('anchors'))
+        model = Model(ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp_dict.get('anchors'))
         model = model.to(self.device)
         exclude = ['anchor'] if (cfg or hyp_dict.get('anchors')) else []
         state_dict = ckpt['model'].float().state_dict()
@@ -529,8 +530,8 @@ class Client(Node):
         new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=False)
         # Compute the local update: delta_it = w_t - w_it
         w_it = new_ckpt['model'].state_dict()
-        # if kround == 0:
-        #     self.post_init_update(data, cfg, hyp, imgsz)
+        if kround == 0:
+            self.post_init_update(data, cfg, hyp, imgsz)
         w_t = self._ckpt['model'].half().state_dict()
         delta_it = copy.deepcopy(w_t)
         for key in delta_it.keys():
