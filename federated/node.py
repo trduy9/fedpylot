@@ -99,7 +99,7 @@ class Node:
         backup_hyp = ckpt['model'].hyp
         backup_gr = ckpt['model'].gr
         nc = ckpt['model'].nc
-        deploy_path = f'/fedpylot/yolov7/cfg/deploy/{architecture}.yaml'
+        deploy_path = f'/kaggle/fedpylot/yolov7/cfg/deploy/{architecture}.yaml'
         id_mp = {
             'yolov7-tiny': 77,
             'yolov7': 105,
@@ -120,7 +120,7 @@ class Node:
                                 and v.shape == model.state_dict()[k].shape}
         model.load_state_dict(intersect_state_dict, strict=False)
         model.names = ckpt['model'].names
-        model.nc = ckpt['model'].nc
+        model.nc = ckpt['model'].cd 
         if architecture in ['yolov7-tiny', 'yolov7', 'yolov7x']:
             # Re-parameterization of P5 models
             idx = id_mp[architecture]
@@ -364,47 +364,47 @@ class Server(Node):
 
     #     return delta_t
 
-    def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
-        """..."""
-        n = sum(nsamples_list)
-        delta_t = copy.deepcopy(self._ckpt['model'].state_dict())
-        
-        # DEBUG
-        print(f"\n[DEBUG] Server model keys: {len(delta_t.keys())}")
-        print(f"[DEBUG] First 5 server keys: {list(delta_t.keys())[:5]}")
-        
-        if updates:
-            print(f"[DEBUG] Client 0 keys: {len(updates[0].keys())}")
-            print(f"[DEBUG] First 5 client keys: {list(updates[0].keys())[:5]}")
-            
-            # Kiểm tra common keys
-            common = set(delta_t.keys()) & set(updates[0].keys())
-            print(f"[DEBUG] Common keys: {len(common)}")
-            print(f"[DEBUG] Server only: {set(delta_t.keys()) - set(updates[0].keys())}")
-            print(f"[DEBUG] Client only: {set(updates[0].keys()) - set(delta_t.keys())}")
-
-        for key in delta_t.keys():
-            valid_updates = [(delta_it[key], ni) for delta_it, ni in zip(updates, nsamples_list) if key in delta_it]
-
-            if valid_updates:
-                delta_it_weighted = [w * (ni / n) for w, ni in valid_updates]
-                delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
-            else:
-                print(f"[WARN] Key '{key}' not found in any client update.")
-                delta_t[key] = torch.zeros_like(delta_t[key])
-
-        return delta_t
-
     # def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
-    #     """Compute the pseudo-gradient using the weighted average of the updates received from the clients."""
-    #     n = 0
-    #     for ni in nsamples_list:
-    #         n += ni
+    #     """..."""
+    #     n = sum(nsamples_list)
     #     delta_t = copy.deepcopy(self._ckpt['model'].state_dict())
+        
+    #     # DEBUG
+    #     print(f"\n[DEBUG] Server model keys: {len(delta_t.keys())}")
+    #     print(f"[DEBUG] First 5 server keys: {list(delta_t.keys())[:5]}")
+        
+    #     if updates:
+    #         print(f"[DEBUG] Client 0 keys: {len(updates[0].keys())}")
+    #         print(f"[DEBUG] First 5 client keys: {list(updates[0].keys())[:5]}")
+            
+    #         # Kiểm tra common keys
+    #         common = set(delta_t.keys()) & set(updates[0].keys())
+    #         print(f"[DEBUG] Common keys: {len(common)}")
+    #         print(f"[DEBUG] Server only: {set(delta_t.keys()) - set(updates[0].keys())}")
+    #         print(f"[DEBUG] Client only: {set(updates[0].keys()) - set(delta_t.keys())}")
+
     #     for key in delta_t.keys():
-    #         delta_it_weighted = [delta_it[key] * (ni / n) for delta_it, ni in zip(updates, nsamples_list)]
-    #         delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
+    #         valid_updates = [(delta_it[key], ni) for delta_it, ni in zip(updates, nsamples_list) if key in delta_it]
+
+    #         if valid_updates:
+    #             delta_it_weighted = [w * (ni / n) for w, ni in valid_updates]
+    #             delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
+    #         else:
+    #             print(f"[WARN] Key '{key}' not found in any client update.")
+    #             delta_t[key] = torch.zeros_like(delta_t[key])
+
     #     return delta_t
+
+    def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
+        """Compute the pseudo-gradient using the weighted average of the updates received from the clients."""
+        n = 0
+        for ni in nsamples_list:
+            n += ni
+        delta_t = copy.deepcopy(self._ckpt['model'].state_dict())
+        for key in delta_t.keys():
+            delta_it_weighted = [delta_it[key] * (ni / n) for delta_it, ni in zip(updates, nsamples_list)]
+            delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
+        return delta_t
     
     # def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
     #     """Compute the pseudo-gradient using the weighted average of the updates received from the clients."""
@@ -565,80 +565,80 @@ class Client(Node):
             self._ckpt['model'] = model
     
        
-    def train(self, nrounds: int, kround: int, epochs: int, architecture: str, data: str,
-            bsz_train: int, imgsz: int, cfg: str, hyp: str, workers: int,
-            saving_path: str) -> None:
-        """Train the model on the local training set and store the new checkpoint and update."""
-        end_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
+    # def train(self, nrounds: int, kround: int, epochs: int, architecture: str, data: str,
+    #         bsz_train: int, imgsz: int, cfg: str, hyp: str, workers: int,
+    #         saving_path: str) -> None:
+    #     """Train the model on the local training set and store the new checkpoint and update."""
+    #     end_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
 
-        if architecture in ['yolov7-tiny', 'yolov7', 'yolov7x']:
-            script_path = './yolov7/train.py'
-        elif architecture in ['yolov7-w6', 'yolov7-e6', 'yolov7-d6', 'yolov7-e6e']:
-            script_path = './yolov7/train_aux.py'
-        else:
-            raise ValueError(f'Model architecture {architecture} not recognized.')
+    #     if architecture in ['yolov7-tiny', 'yolov7', 'yolov7x']:
+    #         script_path = './yolov7/train.py'
+    #     elif architecture in ['yolov7-w6', 'yolov7-e6', 'yolov7-d6', 'yolov7-e6e']:
+    #         script_path = './yolov7/train_aux.py'
+    #     else:
+    #         raise ValueError(f'Model architecture {architecture} not recognized.')
 
-        # Đường log file riêng cho mỗi client
-        log_file = f'{saving_path}/train_client{self.rank}_log.txt'
+    #     # Đường log file riêng cho mỗi client
+    #     log_file = f'{saving_path}/train_client{self.rank}_log.txt'
 
-        if kround == 0:
-            begin_weights = f'{saving_path}/weights/train-kround{kround}-client{self.rank}.pt'
-            torch.save(self._ckpt, begin_weights)
+    #     if kround == 0:
+    #         begin_weights = f'{saving_path}/weights/train-kround{kround}-client{self.rank}.pt'
+    #         torch.save(self._ckpt, begin_weights)
 
-            # Lệnh train
-            cmd = (
-                f'python {script_path}'
-                f' --client-rank {self.rank}'
-                f' --round-length {epochs}'
-                f' --batch-size {bsz_train}'
-                f' --epochs {nrounds * epochs}'
-                f' --data {data}'
-                f' --img {imgsz} {imgsz}'
-                f' --cfg {cfg}'
-                f' --weights {begin_weights}'
-                f' --hyp {hyp}'
-                f' --workers {workers}'
-                f' --project {saving_path}/run/'
-                f' --name train-client{self.rank}'
-                f' --notest'
-            )
-        else:
-            begin_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
-            torch.save(self._ckpt, begin_weights)
-            cmd = f'python {script_path} --resume {begin_weights}'
+    #         # Lệnh train
+    #         cmd = (
+    #             f'python {script_path}'
+    #             f' --client-rank {self.rank}'
+    #             f' --round-length {epochs}'
+    #             f' --batch-size {bsz_train}'
+    #             f' --epochs {nrounds * epochs}'
+    #             f' --data {data}'
+    #             f' --img {imgsz} {imgsz}'
+    #             f' --cfg {cfg}'
+    #             f' --weights {begin_weights}'
+    #             f' --hyp {hyp}'
+    #             f' --workers {workers}'
+    #             f' --project {saving_path}/run/'
+    #             f' --name train-client{self.rank}'
+    #             f' --notest'
+    #         )
+    #     else:
+    #         begin_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
+    #         torch.save(self._ckpt, begin_weights)
+    #         cmd = f'python {script_path} --resume {begin_weights}'
 
-        # ------------------------
-        # 📺 Chạy và in realtime log
-        # ------------------------
-        print(f"\n[Client {self.rank}] 🔥 Starting YOLOv7 training...\n")
-        with open(log_file, 'a') as f_log:
-            process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT, text=True, bufsize=1)
+    #     # ------------------------
+    #     # 📺 Chạy và in realtime log
+    #     # ------------------------
+    #     print(f"\n[Client {self.rank}] 🔥 Starting YOLOv7 training...\n")
+    #     with open(log_file, 'a') as f_log:
+    #         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
+    #                                 stderr=subprocess.STDOUT, text=True, bufsize=1)
 
-            for line in iter(process.stdout.readline, ''):
-                line_stripped = line.strip()
-                print(f"[Client {self.rank}] {line_stripped}")
-                f_log.write(line_stripped + '\n')
-            process.wait()
+    #         for line in iter(process.stdout.readline, ''):
+    #             line_stripped = line.strip()
+    #             print(f"[Client {self.rank}] {line_stripped}")
+    #             f_log.write(line_stripped + '\n')
+    #         process.wait()
 
-        print(f"\n✅ Training done for client {self.rank}, log saved at {log_file}\n")
+    #     print(f"\n✅ Training done for client {self.rank}, log saved at {log_file}\n")
 
-        # ------------------------
-        # 📦 Load lại trọng số và tính delta
-        # ------------------------
-        new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=False)
-        w_it = new_ckpt['model'].state_dict()
+    #     # ------------------------
+    #     # 📦 Load lại trọng số và tính delta
+    #     # ------------------------
+    #     new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=False)
+    #     w_it = new_ckpt['model'].state_dict()
 
-        if kround == 0:
-            self.post_init_update(data, cfg, hyp, imgsz)
+    #     if kround == 0:
+    #         self.post_init_update(data, cfg, hyp, imgsz)
 
-        w_t = self._ckpt['model'].half().state_dict()
-        delta_it = copy.deepcopy(w_t)
-        for key in delta_it.keys():
-            delta_it[key] = w_t[key] - w_it[key]
+    #     w_t = self._ckpt['model'].half().state_dict()
+    #     delta_it = copy.deepcopy(w_t)
+    #     for key in delta_it.keys():
+    #         delta_it[key] = w_t[key] - w_it[key]
 
-        self.__update = delta_it
-        self._ckpt = new_ckpt
+    #     self.__update = delta_it
+    #     self._ckpt = new_ckpt
 
 
     # def train(self, nrounds: int, kround: int, epochs: int, architecture: str, data: str, bsz_train: int, imgsz: int,
@@ -677,6 +677,9 @@ class Client(Node):
     #         torch.save(self._ckpt, begin_weights)
     #         os.system(f'python {script_path} --resume {begin_weights}')
     #     new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=False)
+        
+        
+        
     #     # Compute the local update: delta_it = w_t - w_it
     #     w_it = new_ckpt['model'].state_dict()
         
@@ -689,3 +692,74 @@ class Client(Node):
     #     self.__update = delta_it
     #     # Maintain state across communication rounds (required for FedOpt)
     #     self._ckpt = new_ckpt
+    
+    
+    def train(self, nrounds: int, kround: int, epochs: int, architecture: str, data: str, bsz_train: int, imgsz: int,
+          cfg: str, hyp: str, workers: int, saving_path: str) -> None:
+        """Train the model on the local training set and store the new checkpoint and update."""
+        end_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
+        if architecture in ['yolov7-tiny', 'yolov7', 'yolov7x']:
+            script_path = './yolov7/train.py'
+        elif architecture in ['yolov7-w6', 'yolov7-e6', 'yolov7-d6', 'yolov7-e6e']:
+            script_path = './yolov7/train_aux.py'
+        else:
+            raise ValueError(f'Model architecture {architecture} not recognized.')
+        
+        if kround == 0:
+            # Initialize the training loop and perform the first round of training
+            begin_weights = f'{saving_path}/weights/train-kround{kround}-client{self.rank}.pt'
+            torch.save(self._ckpt, begin_weights)
+            os.system(
+                f'python {script_path}'
+                f' --client-rank {self.rank}'
+                f' --round-length {epochs}'
+                f' --batch-size {bsz_train}'
+                f' --epochs {nrounds * epochs}'
+                f' --data {data}'
+                f' --img {imgsz} {imgsz}'
+                f' --cfg {cfg}'
+                f' --weights {begin_weights}'
+                f' --hyp {hyp}'
+                f' --workers {workers}'
+                f' --project {saving_path}/run/'
+                f' --name train-client{self.rank}'
+                f' --notest'
+            )
+        else:
+            # Resume training with the new set of weights
+            begin_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
+            torch.save(self._ckpt, begin_weights)
+            os.system(f'python {script_path} --resume {begin_weights}')
+        
+        # ============= DEBUG CODE THÊM VÀO ĐÂY =============
+        print(f"[CLIENT {self.rank}] Training ended. Checking for weights file...")
+        print(f"[CLIENT {self.rank}] Looking for: {end_weights}")
+        
+        if not os.path.exists(end_weights):
+            print(f"[CLIENT {self.rank}] ERROR: Weights file NOT found!")
+            print(f"[CLIENT {self.rank}] Available files:")
+            os.system(f"ls -la {saving_path}/run/train-client{self.rank}/weights/ 2>/dev/null || echo 'Directory not found'")
+        else:
+            print(f"[CLIENT {self.rank}] Weights file found. Loading...")
+        # ============= HẾT DEBUG CODE =============
+        
+        new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=False)
+        print(f"[CLIENT {self.rank}] Checkpoint keys: {list(new_ckpt.keys())}")
+        print(f"[CLIENT {self.rank}] Model keys: {len(new_ckpt['model'].state_dict().keys())}")
+        
+        # Compute the local update: delta_it = w_t - w_it
+        w_it = new_ckpt['model'].state_dict()
+        w_t = self._ckpt['model'].half().state_dict()
+        
+        print(f"[CLIENT {self.rank}] w_it keys: {len(w_it.keys())}")
+        print(f"[CLIENT {self.rank}] w_t keys: {len(w_t.keys())}")
+        
+        delta_it = copy.deepcopy(w_t)
+        for key in delta_it.keys():
+            delta_it[key] = w_t[key] - w_it[key]
+        
+        print(f"[CLIENT {self.rank}] delta_it keys: {len(delta_it.keys())}")
+        self.__update = delta_it
+        
+        # Maintain state across communication rounds (required for FedOpt)
+        self._ckpt = new_ckpt
