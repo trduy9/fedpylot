@@ -91,15 +91,15 @@ class Node:
     def reparameterize(self, architecture: str = 'yolov7') -> None:
         """Reduce trainable Bag of Freebies modules into deploy model for faster inference."""
         ckpt = copy.deepcopy(self._ckpt)
-        if not hasattr(ckpt['model'], 'hyp') or ckpt['model'].hyp is None:
-            hyp_path = '/kaggle/working/fedpylot/yolov7/data/hyp.scratch.yaml'
-            with open(hyp_path) as f:
-                ckpt['model'].hyp = yaml.safe_load(f)
+        # if not hasattr(ckpt['model'], 'hyp') or ckpt['model'].hyp is None:
+        #     hyp_path = '/kaggle/working/fedpylot/yolov7/data/hyp.scratch.yaml'
+        #     with open(hyp_path) as f:
+        #         ckpt['model'].hyp = yaml.safe_load(f)
 
         backup_hyp = ckpt['model'].hyp
         backup_gr = ckpt['model'].gr
         nc = ckpt['model'].nc
-        deploy_path = f'/kaggle/working/fedpylot/yolov7/cfg/deploy/{architecture}.yaml'
+        deploy_path = f'/fedpylot/yolov7/cfg/deploy/{architecture}.yaml'
         id_mp = {
             'yolov7-tiny': 77,
             'yolov7': 105,
@@ -125,35 +125,35 @@ class Node:
             # Re-parameterization of P5 models
             idx = id_mp[architecture]
             for i in range((model.nc + 5) * anchors):
-                if f'model.{idx}.im.0.implicit' in sd:
-                    model.state_dict()[f'model.{idx}.m.0.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.0.implicit'].data[:, i, ::].squeeze()
-                if f'model.{idx}.im.1.implicit' in sd:
-                    model.state_dict()[f'model.{idx}.m.1.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.1.implicit'].data[:, i, ::].squeeze()
-                if f'model.{idx}.im.2.implicit' in sd:
-                    model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
-            if f'model.{idx}.im.0.implicit' in sd:
-                model.state_dict()[f'model.{idx}.m.0.bias'].data += sd[f'model.{idx}.m.0.weight'].mul(sd[f'model.{idx}.ia.0.implicit']).sum(1).squeeze()
-            if f'model.{idx}.im.1.implicit' in sd:
-                model.state_dict()[f'model.{idx}.m.1.bias'].data += sd[f'model.{idx}.m.1.weight'].mul(sd[f'model.{idx}.ia.1.implicit']).sum(1).squeeze()
-            if f'model.{idx}.im.2.implicit' in sd:
-                model.state_dict()[f'model.{idx}.m.2.bias'].data += sd[f'model.{idx}.m.2.weight'].mul(sd[f'model.{idx}.ia.2.implicit']).sum(1).squeeze()
+            #     if f'model.{idx}.im.0.implicit' in sd:
+            #         model.state_dict()[f'model.{idx}.m.0.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.0.implicit'].data[:, i, ::].squeeze()
+            #     if f'model.{idx}.im.1.implicit' in sd:
+            #         model.state_dict()[f'model.{idx}.m.1.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.1.implicit'].data[:, i, ::].squeeze()
+            #     if f'model.{idx}.im.2.implicit' in sd:
+            #         model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
+            # if f'model.{idx}.im.0.implicit' in sd:
+            #     model.state_dict()[f'model.{idx}.m.0.bias'].data += sd[f'model.{idx}.m.0.weight'].mul(sd[f'model.{idx}.ia.0.implicit']).sum(1).squeeze()
+            # if f'model.{idx}.im.1.implicit' in sd:
+            #     model.state_dict()[f'model.{idx}.m.1.bias'].data += sd[f'model.{idx}.m.1.weight'].mul(sd[f'model.{idx}.ia.1.implicit']).sum(1).squeeze()
+            # if f'model.{idx}.im.2.implicit' in sd:
+            #     model.state_dict()[f'model.{idx}.m.2.bias'].data += sd[f'model.{idx}.m.2.weight'].mul(sd[f'model.{idx}.ia.2.implicit']).sum(1).squeeze()
             
-            if f'model.{idx}.im.0.implicit' in sd:
-                model.state_dict()[f'model.{idx}.m.0.bias'].data *= sd[f'model.{idx}.im.0.implicit'].data.squeeze()
-            if f'model.{idx}.im.1.implicit' in sd:
-                model.state_dict()[f'model.{idx}.m.1.bias'].data *= sd[f'model.{idx}.im.1.implicit'].data.squeeze()
-            if f'model.{idx}.im.2.implicit' in sd:
-                model.state_dict()[f'model.{idx}.m.2.bias'].data *= sd[f'model.{idx}.im.2.implicit'].data.squeeze()
-            #     model.state_dict()[f'model.{idx}.m.0.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.0.implicit'].data[:, i, ::].squeeze()
-            #     model.state_dict()[f'model.{idx}.m.1.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.1.implicit'].data[:, i, ::].squeeze()
-            #     model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
-            # model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
-            # model.state_dict()[f'model.{idx}.m.0.bias'].data += sd[f'model.{idx}.m.0.weight'].mul(sd[f'model.{idx}.ia.0.implicit']).sum(1).squeeze()
-            # model.state_dict()[f'model.{idx}.m.1.bias'].data += sd[f'model.{idx}.m.1.weight'].mul(sd[f'model.{idx}.ia.1.implicit']).sum(1).squeeze()
-            # model.state_dict()[f'model.{idx}.m.2.bias'].data += sd[f'model.{idx}.m.2.weight'].mul(sd[f'model.{idx}.ia.2.implicit']).sum(1).squeeze()
-            # model.state_dict()[f'model.{idx}.m.0.bias'].data *= sd[f'model.{idx}.im.0.implicit'].data.squeeze()
-            # model.state_dict()[f'model.{idx}.m.1.bias'].data *= sd[f'model.{idx}.im.1.implicit'].data.squeeze()
-            # model.state_dict()[f'model.{idx}.m.2.bias'].data *= sd[f'model.{idx}.im.2.implicit'].data.squeeze()
+            # if f'model.{idx}.im.0.implicit' in sd:
+            #     model.state_dict()[f'model.{idx}.m.0.bias'].data *= sd[f'model.{idx}.im.0.implicit'].data.squeeze()
+            # if f'model.{idx}.im.1.implicit' in sd:
+            #     model.state_dict()[f'model.{idx}.m.1.bias'].data *= sd[f'model.{idx}.im.1.implicit'].data.squeeze()
+            # if f'model.{idx}.im.2.implicit' in sd:
+            #     model.state_dict()[f'model.{idx}.m.2.bias'].data *= sd[f'model.{idx}.im.2.implicit'].data.squeeze()
+                model.state_dict()[f'model.{idx}.m.0.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.0.implicit'].data[:, i, ::].squeeze()
+                model.state_dict()[f'model.{idx}.m.1.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.1.implicit'].data[:, i, ::].squeeze()
+                model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
+            model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
+            model.state_dict()[f'model.{idx}.m.0.bias'].data += sd[f'model.{idx}.m.0.weight'].mul(sd[f'model.{idx}.ia.0.implicit']).sum(1).squeeze()
+            model.state_dict()[f'model.{idx}.m.1.bias'].data += sd[f'model.{idx}.m.1.weight'].mul(sd[f'model.{idx}.ia.1.implicit']).sum(1).squeeze()
+            model.state_dict()[f'model.{idx}.m.2.bias'].data += sd[f'model.{idx}.m.2.weight'].mul(sd[f'model.{idx}.ia.2.implicit']).sum(1).squeeze()
+            model.state_dict()[f'model.{idx}.m.0.bias'].data *= sd[f'model.{idx}.im.0.implicit'].data.squeeze()
+            model.state_dict()[f'model.{idx}.m.1.bias'].data *= sd[f'model.{idx}.im.1.implicit'].data.squeeze()
+            model.state_dict()[f'model.{idx}.m.2.bias'].data *= sd[f'model.{idx}.im.2.implicit'].data.squeeze()
 
         else:
             # Re-parameterization of P6 models
