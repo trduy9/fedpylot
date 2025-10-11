@@ -355,17 +355,47 @@ class Server(Node):
 
     #     return delta_t
 
-
     def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
-        """Compute the pseudo-gradient using the weighted average of the updates received from the clients."""
-        n = 0
-        for ni in nsamples_list:
-            n += ni
+        """..."""
+        n = sum(nsamples_list)
         delta_t = copy.deepcopy(self._ckpt['model'].state_dict())
+        
+        # DEBUG
+        print(f"\n[DEBUG] Server model keys: {len(delta_t.keys())}")
+        print(f"[DEBUG] First 5 server keys: {list(delta_t.keys())[:5]}")
+        
+        if updates:
+            print(f"[DEBUG] Client 0 keys: {len(updates[0].keys())}")
+            print(f"[DEBUG] First 5 client keys: {list(updates[0].keys())[:5]}")
+            
+            # Kiểm tra common keys
+            common = set(delta_t.keys()) & set(updates[0].keys())
+            print(f"[DEBUG] Common keys: {len(common)}")
+            print(f"[DEBUG] Server only: {set(delta_t.keys()) - set(updates[0].keys())}")
+            print(f"[DEBUG] Client only: {set(updates[0].keys()) - set(delta_t.keys())}")
+
         for key in delta_t.keys():
-            delta_it_weighted = [delta_it[key] * (ni / n) for delta_it, ni in zip(updates, nsamples_list)]
-            delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
+            valid_updates = [(delta_it[key], ni) for delta_it, ni in zip(updates, nsamples_list) if key in delta_it]
+
+            if valid_updates:
+                delta_it_weighted = [w * (ni / n) for w, ni in valid_updates]
+                delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
+            else:
+                print(f"[WARN] Key '{key}' not found in any client update.")
+                delta_t[key] = torch.zeros_like(delta_t[key])
+
         return delta_t
+
+    # def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
+    #     """Compute the pseudo-gradient using the weighted average of the updates received from the clients."""
+    #     n = 0
+    #     for ni in nsamples_list:
+    #         n += ni
+    #     delta_t = copy.deepcopy(self._ckpt['model'].state_dict())
+    #     for key in delta_t.keys():
+    #         delta_it_weighted = [delta_it[key] * (ni / n) for delta_it, ni in zip(updates, nsamples_list)]
+    #         delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
+    #     return delta_t
     
     # def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
     #     """Compute the pseudo-gradient using the weighted average of the updates received from the clients."""
