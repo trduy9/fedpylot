@@ -116,35 +116,35 @@ class Node:
             # Re-parameterization of P5 models
             idx = id_mp[architecture]
             for i in range((model.nc + 5) * anchors):
-                if f'model.{idx}.im.0.implicit' in sd:
-                    model.state_dict()[f'model.{idx}.m.0.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.0.implicit'].data[:, i, ::].squeeze()
-                if f'model.{idx}.im.1.implicit' in sd:
-                    model.state_dict()[f'model.{idx}.m.1.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.1.implicit'].data[:, i, ::].squeeze()
-                if f'model.{idx}.im.2.implicit' in sd:
-                    model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
-            if f'model.{idx}.im.0.implicit' in sd:
-                model.state_dict()[f'model.{idx}.m.0.bias'].data += sd[f'model.{idx}.m.0.weight'].mul(sd[f'model.{idx}.ia.0.implicit']).sum(1).squeeze()
-            if f'model.{idx}.im.1.implicit' in sd:
-                model.state_dict()[f'model.{idx}.m.1.bias'].data += sd[f'model.{idx}.m.1.weight'].mul(sd[f'model.{idx}.ia.1.implicit']).sum(1).squeeze()
-            if f'model.{idx}.im.2.implicit' in sd:
-                model.state_dict()[f'model.{idx}.m.2.bias'].data += sd[f'model.{idx}.m.2.weight'].mul(sd[f'model.{idx}.ia.2.implicit']).sum(1).squeeze()
+            #     if f'model.{idx}.im.0.implicit' in sd:
+            #         model.state_dict()[f'model.{idx}.m.0.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.0.implicit'].data[:, i, ::].squeeze()
+            #     if f'model.{idx}.im.1.implicit' in sd:
+            #         model.state_dict()[f'model.{idx}.m.1.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.1.implicit'].data[:, i, ::].squeeze()
+            #     if f'model.{idx}.im.2.implicit' in sd:
+            #         model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
+            # if f'model.{idx}.im.0.implicit' in sd:
+            #     model.state_dict()[f'model.{idx}.m.0.bias'].data += sd[f'model.{idx}.m.0.weight'].mul(sd[f'model.{idx}.ia.0.implicit']).sum(1).squeeze()
+            # if f'model.{idx}.im.1.implicit' in sd:
+            #     model.state_dict()[f'model.{idx}.m.1.bias'].data += sd[f'model.{idx}.m.1.weight'].mul(sd[f'model.{idx}.ia.1.implicit']).sum(1).squeeze()
+            # if f'model.{idx}.im.2.implicit' in sd:
+            #     model.state_dict()[f'model.{idx}.m.2.bias'].data += sd[f'model.{idx}.m.2.weight'].mul(sd[f'model.{idx}.ia.2.implicit']).sum(1).squeeze()
             
-            if f'model.{idx}.im.0.implicit' in sd:
-                model.state_dict()[f'model.{idx}.m.0.bias'].data *= sd[f'model.{idx}.im.0.implicit'].data.squeeze()
-            if f'model.{idx}.im.1.implicit' in sd:
-                model.state_dict()[f'model.{idx}.m.1.bias'].data *= sd[f'model.{idx}.im.1.implicit'].data.squeeze()
-            if f'model.{idx}.im.2.implicit' in sd:
-                model.state_dict()[f'model.{idx}.m.2.bias'].data *= sd[f'model.{idx}.im.2.implicit'].data.squeeze()
-        #         model.state_dict()[f'model.{idx}.m.0.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.0.implicit'].data[:, i, ::].squeeze()
-        #         model.state_dict()[f'model.{idx}.m.1.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.1.implicit'].data[:, i, ::].squeeze()
-        #         model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
-        #     model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
-        #     model.state_dict()[f'model.{idx}.m.0.bias'].data += sd[f'model.{idx}.m.0.weight'].mul(sd[f'model.{idx}.ia.0.implicit']).sum(1).squeeze()
-        #     model.state_dict()[f'model.{idx}.m.1.bias'].data += sd[f'model.{idx}.m.1.weight'].mul(sd[f'model.{idx}.ia.1.implicit']).sum(1).squeeze()
-        #     model.state_dict()[f'model.{idx}.m.2.bias'].data += sd[f'model.{idx}.m.2.weight'].mul(sd[f'model.{idx}.ia.2.implicit']).sum(1).squeeze()
-        #     model.state_dict()[f'model.{idx}.m.0.bias'].data *= sd[f'model.{idx}.im.0.implicit'].data.squeeze()
-        #     model.state_dict()[f'model.{idx}.m.1.bias'].data *= sd[f'model.{idx}.im.1.implicit'].data.squeeze()
-        #     model.state_dict()[f'model.{idx}.m.2.bias'].data *= sd[f'model.{idx}.im.2.implicit'].data.squeeze()
+            # if f'model.{idx}.im.0.implicit' in sd:
+            #     model.state_dict()[f'model.{idx}.m.0.bias'].data *= sd[f'model.{idx}.im.0.implicit'].data.squeeze()
+            # if f'model.{idx}.im.1.implicit' in sd:
+            #     model.state_dict()[f'model.{idx}.m.1.bias'].data *= sd[f'model.{idx}.im.1.implicit'].data.squeeze()
+            # if f'model.{idx}.im.2.implicit' in sd:
+            #     model.state_dict()[f'model.{idx}.m.2.bias'].data *= sd[f'model.{idx}.im.2.implicit'].data.squeeze()
+                model.state_dict()[f'model.{idx}.m.0.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.0.implicit'].data[:, i, ::].squeeze()
+                model.state_dict()[f'model.{idx}.m.1.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.1.implicit'].data[:, i, ::].squeeze()
+                model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
+            model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
+            model.state_dict()[f'model.{idx}.m.0.bias'].data += sd[f'model.{idx}.m.0.weight'].mul(sd[f'model.{idx}.ia.0.implicit']).sum(1).squeeze()
+            model.state_dict()[f'model.{idx}.m.1.bias'].data += sd[f'model.{idx}.m.1.weight'].mul(sd[f'model.{idx}.ia.1.implicit']).sum(1).squeeze()
+            model.state_dict()[f'model.{idx}.m.2.bias'].data += sd[f'model.{idx}.m.2.weight'].mul(sd[f'model.{idx}.ia.2.implicit']).sum(1).squeeze()
+            model.state_dict()[f'model.{idx}.m.0.bias'].data *= sd[f'model.{idx}.im.0.implicit'].data.squeeze()
+            model.state_dict()[f'model.{idx}.m.1.bias'].data *= sd[f'model.{idx}.im.1.implicit'].data.squeeze()
+            model.state_dict()[f'model.{idx}.m.2.bias'].data *= sd[f'model.{idx}.im.2.implicit'].data.squeeze()
 
         else:
             # Re-parameterization of P6 models
@@ -189,27 +189,27 @@ class Node:
 
     def post_init_update(self, data: str, cfg: str, hyp: str, imgsz: int) -> None:
         """Post-initialization update of the model to match the training loop model."""
-        # ckpt = copy.deepcopy(self._ckpt)  # load checkpoint
-        # with open(data) as f:
-        #     data_dict = yaml.load(f, Loader=yaml.SafeLoader)
-        # with open(hyp) as f:
-        #     hyp_dict = yaml.load(f, Loader=yaml.SafeLoader)
-        # nc = int(data_dict['nc'])  # number of classes
-        # model = Model(cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp_dict.get('anchors'))
-        # model = model.to(self.device)
-        # exclude = ['anchor'] if (cfg or hyp_dict.get('anchors')) else []
-        # state_dict = ckpt['model'].float().state_dict()
-        # state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)
-        # model.load_state_dict(state_dict, strict=False)
-        
-        model = self._ckpt['model']  # Dùng model cũ, không tạo mới
-    
+        ckpt = copy.deepcopy(self._ckpt)  # load checkpoint
         with open(data) as f:
             data_dict = yaml.load(f, Loader=yaml.SafeLoader)
         with open(hyp) as f:
             hyp_dict = yaml.load(f, Loader=yaml.SafeLoader)
+        nc = int(data_dict['nc'])  # number of classes
+        model = Model(cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp_dict.get('anchors'))
+        model = model.to(self.device)
+        exclude = ['anchor'] if (cfg or hyp_dict.get('anchors')) else []
+        state_dict = ckpt['model'].float().state_dict()
+        state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)
+        model.load_state_dict(state_dict, strict=False)
         
-        nc = int(data_dict['nc'])
+        # model = self._ckpt['model']  # Dùng model cũ, không tạo mới
+    
+        # with open(data) as f:
+        #     data_dict = yaml.load(f, Loader=yaml.SafeLoader)
+        # with open(hyp) as f:
+        #     hyp_dict = yaml.load(f, Loader=yaml.SafeLoader)
+        
+        # nc = int(data_dict['nc'])
         
         # Model parameters
         nl = model.model[-1].nl  # number of detection layers (used for scaling hyp['obj'])
@@ -308,7 +308,7 @@ class Server(Node):
         """Initialize the checkpoint from a pretrained weights file."""
         # self._ckpt = torch.load(weights, map_location=self.device, weights_only=False)
         
-        ckpt = torch.load(weights, map_location=self.device, weights_only=False)
+        ckpt = torch.load(weights, map_location=self.device, weights_only=True)
         print(f"Checkpoint keys: {list(ckpt.keys())}")  # ← Xem file có key 'model' không
         self._ckpt = ckpt
 
@@ -356,17 +356,6 @@ class Server(Node):
     #     return delta_t
 
 
-    # def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
-    #     """Compute the pseudo-gradient using the weighted average of the updates received from the clients."""
-    #     n = 0
-    #     for ni in nsamples_list:
-    #         n += ni
-    #     delta_t = copy.deepcopy(self._ckpt['model'].state_dict())
-    #     for key in delta_t.keys():
-    #         delta_it_weighted = [delta_it[key] * (ni / n) for delta_it, ni in zip(updates, nsamples_list)]
-    #         delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
-    #     return delta_t
-    
     def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
         """Compute the pseudo-gradient using the weighted average of the updates received from the clients."""
         n = 0
@@ -374,12 +363,23 @@ class Server(Node):
             n += ni
         delta_t = copy.deepcopy(self._ckpt['model'].state_dict())
         for key in delta_t.keys():
-            delta_it_weighted = [delta_it[key] * (ni / n) for delta_it, ni in zip(updates, nsamples_list) if key in delta_it]
-            if delta_it_weighted:
-                delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
-            else:
-                delta_t[key] = torch.zeros_like(delta_t[key])
+            delta_it_weighted = [delta_it[key] * (ni / n) for delta_it, ni in zip(updates, nsamples_list)]
+            delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
         return delta_t
+    
+    # def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
+    #     """Compute the pseudo-gradient using the weighted average of the updates received from the clients."""
+    #     n = 0
+    #     for ni in nsamples_list:
+    #         n += ni
+    #     delta_t = copy.deepcopy(self._ckpt['model'].state_dict())
+    #     for key in delta_t.keys():
+    #         delta_it_weighted = [delta_it[key] * (ni / n) for delta_it, ni in zip(updates, nsamples_list) if key in delta_it]
+    #         if delta_it_weighted:
+    #             delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
+    #         else:
+    #             delta_t[key] = torch.zeros_like(delta_t[key])
+    #     return delta_t
 
     def __fedavg(self, delta_t: dict) -> dict:
         """Compute the new weights using the FedAvg algorithm (server opt is SGD, default lr is 1)."""
@@ -560,7 +560,7 @@ class Client(Node):
             begin_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
             torch.save(self._ckpt, begin_weights)
             os.system(f'python {script_path} --resume {begin_weights}')
-        new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=False)
+        new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=True)
         # Compute the local update: delta_it = w_t - w_it
         w_it = new_ckpt['model'].state_dict()
         if kround == 0:
