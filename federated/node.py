@@ -563,6 +563,7 @@ class Client(Node):
         new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=False)
         # Compute the local update: delta_it = w_t - w_it
         w_it = new_ckpt['model'].state_dict()
+        
         # if kround == 0:
         #     self.post_init_update(data, cfg, hyp, imgsz)
         w_t = self._ckpt['model'].half().state_dict()
