@@ -99,7 +99,7 @@ class Node:
         backup_hyp = ckpt['model'].hyp
         backup_gr = ckpt['model'].gr
         nc = ckpt['model'].nc
-        deploy_path = f'/kaggle/fedpylot/yolov7/cfg/deploy/{architecture}.yaml'
+        deploy_path = f'/kaggle/working/fedpylot/yolov7/cfg/deploy/{architecture}.yaml'
         id_mp = {
             'yolov7-tiny': 77,
             'yolov7': 105,
