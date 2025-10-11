@@ -87,6 +87,11 @@ class Node:
     def reparameterize(self, architecture: str = 'yolov7') -> None:
         """Reduce trainable Bag of Freebies modules into deploy model for faster inference."""
         ckpt = copy.deepcopy(self._ckpt)
+        if not hasattr(ckpt['model'], 'hyp') or ckpt['model'].hyp is None:
+            hyp_path = '/kaggle/working/fedpylot/yolov7/data/hyp.scratch.yaml'
+            with open(hyp_path) as f:
+                ckpt['model'].hyp = yaml.safe_load(f)
+
         backup_hyp = ckpt['model'].hyp
         backup_gr = ckpt['model'].gr
         nc = ckpt['model'].nc
