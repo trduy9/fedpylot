@@ -50,7 +50,7 @@ def initial_broadcast(node: Node, pretrained_weights: str, data: str, cfg: str, 
     if node.rank == 0:
         node.initialize_model(pretrained_weights)
         encrypted_data = [None] + node.get_weights(metadata=True)
-        node.post_init_update(data=data, cfg=cfg, hyp=hyp, imgsz=imgsz)
+        # node.post_init_update(data=data, cfg=cfg, hyp=hyp, imgsz=imgsz)
     else:
         encrypted_data = None
     encrypted_data = comm.scatter(encrypted_data, root=0)
