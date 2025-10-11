@@ -6,6 +6,10 @@ import pickle
 import secrets
 import sys
 
+import subprocess
+
+
+
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -559,22 +563,30 @@ class Client(Node):
             model = self._ckpt['model']
             model.load_state_dict(new_weights)
             self._ckpt['model'] = model
-
-    def train(self, nrounds: int, kround: int, epochs: int, architecture: str, data: str, bsz_train: int, imgsz: int,
-              cfg: str, hyp: str, workers: int, saving_path: str) -> None:
+    
+       
+    def train(self, nrounds: int, kround: int, epochs: int, architecture: str, data: str,
+            bsz_train: int, imgsz: int, cfg: str, hyp: str, workers: int,
+            saving_path: str) -> None:
         """Train the model on the local training set and store the new checkpoint and update."""
         end_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
+
         if architecture in ['yolov7-tiny', 'yolov7', 'yolov7x']:
             script_path = './yolov7/train.py'
         elif architecture in ['yolov7-w6', 'yolov7-e6', 'yolov7-d6', 'yolov7-e6e']:
             script_path = './yolov7/train_aux.py'
         else:
             raise ValueError(f'Model architecture {architecture} not recognized.')
+
+        # Đường log file riêng cho mỗi client
+        log_file = f'{saving_path}/train_client{self.rank}_log.txt'
+
         if kround == 0:
-            # Initialize the training loop and perform the first round of training
             begin_weights = f'{saving_path}/weights/train-kround{kround}-client{self.rank}.pt'
             torch.save(self._ckpt, begin_weights)
-            os.system(
+
+            # Lệnh train
+            cmd = (
                 f'python {script_path}'
                 f' --client-rank {self.rank}'
                 f' --round-length {epochs}'
@@ -591,20 +603,89 @@ class Client(Node):
                 f' --notest'
             )
         else:
-            # Resume training with the new set of weights
             begin_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
             torch.save(self._ckpt, begin_weights)
-            os.system(f'python {script_path} --resume {begin_weights}')
+            cmd = f'python {script_path} --resume {begin_weights}'
+
+        # ------------------------
+        # 📺 Chạy và in realtime log
+        # ------------------------
+        print(f"\n[Client {self.rank}] 🔥 Starting YOLOv7 training...\n")
+        with open(log_file, 'a') as f_log:
+            process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, text=True, bufsize=1)
+
+            for line in iter(process.stdout.readline, ''):
+                line_stripped = line.strip()
+                print(f"[Client {self.rank}] {line_stripped}")
+                f_log.write(line_stripped + '\n')
+            process.wait()
+
+        print(f"\n✅ Training done for client {self.rank}, log saved at {log_file}\n")
+
+        # ------------------------
+        # 📦 Load lại trọng số và tính delta
+        # ------------------------
         new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=False)
-        # Compute the local update: delta_it = w_t - w_it
         w_it = new_ckpt['model'].state_dict()
-        
+
         if kround == 0:
             self.post_init_update(data, cfg, hyp, imgsz)
+
         w_t = self._ckpt['model'].half().state_dict()
         delta_it = copy.deepcopy(w_t)
         for key in delta_it.keys():
             delta_it[key] = w_t[key] - w_it[key]
+
         self.__update = delta_it
-        # Maintain state across communication rounds (required for FedOpt)
         self._ckpt = new_ckpt
+
+
+    # def train(self, nrounds: int, kround: int, epochs: int, architecture: str, data: str, bsz_train: int, imgsz: int,
+    #           cfg: str, hyp: str, workers: int, saving_path: str) -> None:
+    #     """Train the model on the local training set and store the new checkpoint and update."""
+    #     end_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
+    #     if architecture in ['yolov7-tiny', 'yolov7', 'yolov7x']:
+    #         script_path = './yolov7/train.py'
+    #     elif architecture in ['yolov7-w6', 'yolov7-e6', 'yolov7-d6', 'yolov7-e6e']:
+    #         script_path = './yolov7/train_aux.py'
+    #     else:
+    #         raise ValueError(f'Model architecture {architecture} not recognized.')
+    #     if kround == 0:
+    #         # Initialize the training loop and perform the first round of training
+    #         begin_weights = f'{saving_path}/weights/train-kround{kround}-client{self.rank}.pt'
+    #         torch.save(self._ckpt, begin_weights)
+    #         os.system(
+    #             f'python {script_path}'
+    #             f' --client-rank {self.rank}'
+    #             f' --round-length {epochs}'
+    #             f' --batch-size {bsz_train}'
+    #             f' --epochs {nrounds * epochs}'
+    #             f' --data {data}'
+    #             f' --img {imgsz} {imgsz}'
+    #             f' --cfg {cfg}'
+    #             f' --weights {begin_weights}'
+    #             f' --hyp {hyp}'
+    #             f' --workers {workers}'
+    #             f' --project {saving_path}/run/'
+    #             f' --name train-client{self.rank}'
+    #             f' --notest'
+    #         )
+    #     else:
+    #         # Resume training with the new set of weights
+    #         begin_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
+    #         torch.save(self._ckpt, begin_weights)
+    #         os.system(f'python {script_path} --resume {begin_weights}')
+    #     new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=False)
+    #     # Compute the local update: delta_it = w_t - w_it
+    #     w_it = new_ckpt['model'].state_dict()
+        
+    #     if kround == 0:
+    #         self.post_init_update(data, cfg, hyp, imgsz)
+    #     w_t = self._ckpt['model'].half().state_dict()
+    #     delta_it = copy.deepcopy(w_t)
+    #     for key in delta_it.keys():
+    #         delta_it[key] = w_t[key] - w_it[key]
+    #     self.__update = delta_it
+    #     # Maintain state across communication rounds (required for FedOpt)
+    #     self._ckpt = new_ckpt
