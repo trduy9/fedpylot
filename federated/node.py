@@ -125,35 +125,35 @@ class Node:
             # Re-parameterization of P5 models
             idx = id_mp[architecture]
             for i in range((model.nc + 5) * anchors):
-            #     if f'model.{idx}.im.0.implicit' in sd:
-            #         model.state_dict()[f'model.{idx}.m.0.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.0.implicit'].data[:, i, ::].squeeze()
-            #     if f'model.{idx}.im.1.implicit' in sd:
-            #         model.state_dict()[f'model.{idx}.m.1.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.1.implicit'].data[:, i, ::].squeeze()
-            #     if f'model.{idx}.im.2.implicit' in sd:
-            #         model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
-            # if f'model.{idx}.im.0.implicit' in sd:
-            #     model.state_dict()[f'model.{idx}.m.0.bias'].data += sd[f'model.{idx}.m.0.weight'].mul(sd[f'model.{idx}.ia.0.implicit']).sum(1).squeeze()
-            # if f'model.{idx}.im.1.implicit' in sd:
-            #     model.state_dict()[f'model.{idx}.m.1.bias'].data += sd[f'model.{idx}.m.1.weight'].mul(sd[f'model.{idx}.ia.1.implicit']).sum(1).squeeze()
-            # if f'model.{idx}.im.2.implicit' in sd:
-            #     model.state_dict()[f'model.{idx}.m.2.bias'].data += sd[f'model.{idx}.m.2.weight'].mul(sd[f'model.{idx}.ia.2.implicit']).sum(1).squeeze()
+                if f'model.{idx}.im.0.implicit' in sd:
+                    model.state_dict()[f'model.{idx}.m.0.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.0.implicit'].data[:, i, ::].squeeze()
+                if f'model.{idx}.im.1.implicit' in sd:
+                    model.state_dict()[f'model.{idx}.m.1.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.1.implicit'].data[:, i, ::].squeeze()
+                if f'model.{idx}.im.2.implicit' in sd:
+                    model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
+            if f'model.{idx}.im.0.implicit' in sd:
+                model.state_dict()[f'model.{idx}.m.0.bias'].data += sd[f'model.{idx}.m.0.weight'].mul(sd[f'model.{idx}.ia.0.implicit']).sum(1).squeeze()
+            if f'model.{idx}.im.1.implicit' in sd:
+                model.state_dict()[f'model.{idx}.m.1.bias'].data += sd[f'model.{idx}.m.1.weight'].mul(sd[f'model.{idx}.ia.1.implicit']).sum(1).squeeze()
+            if f'model.{idx}.im.2.implicit' in sd:
+                model.state_dict()[f'model.{idx}.m.2.bias'].data += sd[f'model.{idx}.m.2.weight'].mul(sd[f'model.{idx}.ia.2.implicit']).sum(1).squeeze()
             
-            # if f'model.{idx}.im.0.implicit' in sd:
-            #     model.state_dict()[f'model.{idx}.m.0.bias'].data *= sd[f'model.{idx}.im.0.implicit'].data.squeeze()
-            # if f'model.{idx}.im.1.implicit' in sd:
-            #     model.state_dict()[f'model.{idx}.m.1.bias'].data *= sd[f'model.{idx}.im.1.implicit'].data.squeeze()
-            # if f'model.{idx}.im.2.implicit' in sd:
-            #     model.state_dict()[f'model.{idx}.m.2.bias'].data *= sd[f'model.{idx}.im.2.implicit'].data.squeeze()
-                model.state_dict()[f'model.{idx}.m.0.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.0.implicit'].data[:, i, ::].squeeze()
-                model.state_dict()[f'model.{idx}.m.1.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.1.implicit'].data[:, i, ::].squeeze()
-                model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
-            model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
-            model.state_dict()[f'model.{idx}.m.0.bias'].data += sd[f'model.{idx}.m.0.weight'].mul(sd[f'model.{idx}.ia.0.implicit']).sum(1).squeeze()
-            model.state_dict()[f'model.{idx}.m.1.bias'].data += sd[f'model.{idx}.m.1.weight'].mul(sd[f'model.{idx}.ia.1.implicit']).sum(1).squeeze()
-            model.state_dict()[f'model.{idx}.m.2.bias'].data += sd[f'model.{idx}.m.2.weight'].mul(sd[f'model.{idx}.ia.2.implicit']).sum(1).squeeze()
-            model.state_dict()[f'model.{idx}.m.0.bias'].data *= sd[f'model.{idx}.im.0.implicit'].data.squeeze()
-            model.state_dict()[f'model.{idx}.m.1.bias'].data *= sd[f'model.{idx}.im.1.implicit'].data.squeeze()
-            model.state_dict()[f'model.{idx}.m.2.bias'].data *= sd[f'model.{idx}.im.2.implicit'].data.squeeze()
+            if f'model.{idx}.im.0.implicit' in sd:
+                model.state_dict()[f'model.{idx}.m.0.bias'].data *= sd[f'model.{idx}.im.0.implicit'].data.squeeze()
+            if f'model.{idx}.im.1.implicit' in sd:
+                model.state_dict()[f'model.{idx}.m.1.bias'].data *= sd[f'model.{idx}.im.1.implicit'].data.squeeze()
+            if f'model.{idx}.im.2.implicit' in sd:
+                model.state_dict()[f'model.{idx}.m.2.bias'].data *= sd[f'model.{idx}.im.2.implicit'].data.squeeze()
+            #     model.state_dict()[f'model.{idx}.m.0.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.0.implicit'].data[:, i, ::].squeeze()
+            #     model.state_dict()[f'model.{idx}.m.1.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.1.implicit'].data[:, i, ::].squeeze()
+            #     model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
+            # model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
+            # model.state_dict()[f'model.{idx}.m.0.bias'].data += sd[f'model.{idx}.m.0.weight'].mul(sd[f'model.{idx}.ia.0.implicit']).sum(1).squeeze()
+            # model.state_dict()[f'model.{idx}.m.1.bias'].data += sd[f'model.{idx}.m.1.weight'].mul(sd[f'model.{idx}.ia.1.implicit']).sum(1).squeeze()
+            # model.state_dict()[f'model.{idx}.m.2.bias'].data += sd[f'model.{idx}.m.2.weight'].mul(sd[f'model.{idx}.ia.2.implicit']).sum(1).squeeze()
+            # model.state_dict()[f'model.{idx}.m.0.bias'].data *= sd[f'model.{idx}.im.0.implicit'].data.squeeze()
+            # model.state_dict()[f'model.{idx}.m.1.bias'].data *= sd[f'model.{idx}.im.1.implicit'].data.squeeze()
+            # model.state_dict()[f'model.{idx}.m.2.bias'].data *= sd[f'model.{idx}.im.2.implicit'].data.squeeze()
 
         else:
             # Re-parameterization of P6 models
@@ -364,36 +364,36 @@ class Server(Node):
 
     #     return delta_t
 
-    # def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
-    #     """..."""
-    #     n = sum(nsamples_list)
-    #     delta_t = copy.deepcopy(self._ckpt['model'].state_dict())
+    def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
+        """..."""
+        n = sum(nsamples_list)
+        delta_t = copy.deepcopy(self._ckpt['model'].state_dict())
         
-    #     # DEBUG
-    #     print(f"\n[DEBUG] Server model keys: {len(delta_t.keys())}")
-    #     print(f"[DEBUG] First 5 server keys: {list(delta_t.keys())[:5]}")
+        # DEBUG
+        print(f"\n[DEBUG] Server model keys: {len(delta_t.keys())}")
+        print(f"[DEBUG] First 5 server keys: {list(delta_t.keys())[:5]}")
         
-    #     if updates:
-    #         print(f"[DEBUG] Client 0 keys: {len(updates[0].keys())}")
-    #         print(f"[DEBUG] First 5 client keys: {list(updates[0].keys())[:5]}")
+        if updates:
+            print(f"[DEBUG] Client 0 keys: {len(updates[0].keys())}")
+            print(f"[DEBUG] First 5 client keys: {list(updates[0].keys())[:5]}")
             
-    #         # Kiểm tra common keys
-    #         common = set(delta_t.keys()) & set(updates[0].keys())
-    #         print(f"[DEBUG] Common keys: {len(common)}")
-    #         print(f"[DEBUG] Server only: {set(delta_t.keys()) - set(updates[0].keys())}")
-    #         print(f"[DEBUG] Client only: {set(updates[0].keys()) - set(delta_t.keys())}")
+            # Kiểm tra common keys
+            common = set(delta_t.keys()) & set(updates[0].keys())
+            print(f"[DEBUG] Common keys: {len(common)}")
+            print(f"[DEBUG] Server only: {set(delta_t.keys()) - set(updates[0].keys())}")
+            print(f"[DEBUG] Client only: {set(updates[0].keys()) - set(delta_t.keys())}")
 
-    #     for key in delta_t.keys():
-    #         valid_updates = [(delta_it[key], ni) for delta_it, ni in zip(updates, nsamples_list) if key in delta_it]
+        for key in delta_t.keys():
+            valid_updates = [(delta_it[key], ni) for delta_it, ni in zip(updates, nsamples_list) if key in delta_it]
 
-    #         if valid_updates:
-    #             delta_it_weighted = [w * (ni / n) for w, ni in valid_updates]
-    #             delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
-    #         else:
-    #             print(f"[WARN] Key '{key}' not found in any client update.")
-    #             delta_t[key] = torch.zeros_like(delta_t[key])
+            if valid_updates:
+                delta_it_weighted = [w * (ni / n) for w, ni in valid_updates]
+                delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
+            else:
+                print(f"[WARN] Key '{key}' not found in any client update.")
+                delta_t[key] = torch.zeros_like(delta_t[key])
 
-    #     return delta_t
+        return delta_t
 
     def __compute_pseudo_gradient(self, updates: list[dict], nsamples_list: list[int]) -> dict:
         """Compute the pseudo-gradient using the weighted average of the updates received from the clients."""
