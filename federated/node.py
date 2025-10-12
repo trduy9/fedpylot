@@ -91,11 +91,6 @@ class Node:
     def reparameterize(self, architecture: str = 'yolov7') -> None:
         """Reduce trainable Bag of Freebies modules into deploy model for faster inference."""
         ckpt = copy.deepcopy(self._ckpt)
-        # if not hasattr(ckpt['model'], 'hyp') or ckpt['model'].hyp is None:
-        #     hyp_path = '/kaggle/working/fedpylot/yolov7/data/hyp.scratch.yaml'
-        #     with open(hyp_path) as f:
-        #         ckpt['model'].hyp = yaml.safe_load(f)
-
         backup_hyp = ckpt['model'].hyp
         backup_gr = ckpt['model'].gr
         nc = ckpt['model'].nc
@@ -191,16 +186,7 @@ class Node:
         state_dict = ckpt['model'].float().state_dict()
         state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)
         model.load_state_dict(state_dict, strict=False)
-        
-        # model = self._ckpt['model']  # Dùng model cũ, không tạo mới
     
-        # with open(data) as f:
-        #     data_dict = yaml.load(f, Loader=yaml.SafeLoader)
-        # with open(hyp) as f:
-        #     hyp_dict = yaml.load(f, Loader=yaml.SafeLoader)
-        
-        # nc = int(data_dict['nc'])
-        
         # Model parameters
         nl = model.model[-1].nl  # number of detection layers (used for scaling hyp['obj'])
         hyp_dict['box'] *= 3. / nl  # scale to layers
@@ -546,9 +532,9 @@ class Client(Node):
         # w_t = self._ckpt['model'].half().state_dict()
         # w_t = self._ckpt['model'].state_dict()
         if 'model' in new_ckpt:
-            w_it = new_ckpt['model'].state_dict()
+            w_t = new_ckpt['model'].state_dict()
         else:
-            w_it = new_ckpt  # new_ckpt chỉ chứa state_dict
+            w_t = new_ckpt  # new_ckpt chỉ chứa state_dict
 
         delta_it = copy.deepcopy(w_t)
         for key in delta_it.keys():
