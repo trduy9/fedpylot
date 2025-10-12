@@ -506,7 +506,7 @@ class Client(Node):
         """Train the model on the local training set and store the new checkpoint and update."""
         end_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
         if architecture in ['yolov7-tiny', 'yolov7', 'yolov7x']:
-            script_path = './yolov7/train.py'
+            script_path = '/kaggle/working/fedpylot/yolov7/train.py'
         elif architecture in ['yolov7-w6', 'yolov7-e6', 'yolov7-d6', 'yolov7-e6e']:
             script_path = './yolov7/train_aux.py'
         else:
