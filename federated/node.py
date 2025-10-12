@@ -298,9 +298,19 @@ class Server(Node):
         """Initialize the checkpoint from a pretrained weights file."""
         # self._ckpt = torch.load(weights, map_location=self.device, weights_only=False)
         
+        # ckpt = torch.load(weights, map_location=self.device, weights_only=False)
+        # print(f"Checkpoint keys: {list(ckpt.keys())}")  # ← Xem file có key 'model' không
+        # self._ckpt = ckpt
+        
         ckpt = torch.load(weights, map_location=self.device, weights_only=False)
-        print(f"Checkpoint keys: {list(ckpt.keys())}")  # ← Xem file có key 'model' không
+        if 'model' not in ckpt:
+            print(f"[WARN] Pretrained weights at {weights} has no 'model' key. Wrapping it.")
+            # Load YOLO model manually
+            model = Model(cfg='/kaggle/working/fedpylot/yolov7/cfg/training/yolov7.yaml', ch=3, nc=8)  # chỉnh lại theo dataset bạn
+            model.load_state_dict(ckpt)
+            ckpt = {'model': model}
         self._ckpt = ckpt
+
 
     def get_weights(self, metadata: bool) -> list[tuple[bytes, bytes, bytes]]:
         """Return the weights encrypted with AES, the tag, and the nonce for each client."""
@@ -400,6 +410,13 @@ class Server(Node):
     def aggregate(self, state_dicts_encrypted: list[tuple[bytes, bytes, bytes, int]]) -> None:
         """Compute the weights for the next communication round using the clients' local updates."""
         updates, nsamples_list = self.__decrypt_updates(state_dicts_encrypted)
+        if not updates:
+            print("[Server] No client updates received. Skipping aggregation.")
+            return
+        common_keys = set.intersection(*(set(u.keys()) for u in updates))
+        missing_keys = set(self._ckpt['model'].state_dict().keys()) - common_keys
+        if missing_keys:
+            print(f"[WARN] {len(missing_keys)} keys missing from client updates (e.g. {list(missing_keys)[:3]})")
         delta_t = self.__compute_pseudo_gradient(updates, nsamples_list)
         if self.server_opt == 'fedavg':
             new_sd = self.__fedavg(delta_t)
@@ -527,7 +544,12 @@ class Client(Node):
         if kround == 0:
             self.post_init_update(data, cfg, hyp, imgsz)
         # w_t = self._ckpt['model'].half().state_dict()
-        w_t = self._ckpt['model'].state_dict()
+        # w_t = self._ckpt['model'].state_dict()
+        if 'model' in new_ckpt:
+            w_it = new_ckpt['model'].state_dict()
+        else:
+            w_it = new_ckpt  # new_ckpt chỉ chứa state_dict
+
         delta_it = copy.deepcopy(w_t)
         for key in delta_it.keys():
             delta_it[key] = w_t[key] - w_it[key]
