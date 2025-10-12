@@ -705,13 +705,14 @@ class Client(Node):
         else:
             raise ValueError(f'Model architecture {architecture} not recognized.')
         
-        print(f"[CLIENT {self.rank}] Running training script: {script_path}")
+        print(f"[CLIENT {self.rank}] Starting training...")
         
         if kround == 0:
             # Initialize the training loop and perform the first round of training
             begin_weights = f'{saving_path}/weights/train-kround{kround}-client{self.rank}.pt'
             torch.save(self._ckpt, begin_weights)
-            ret = os.system(
+            
+            cmd = (
                 f'python {script_path}'
                 f' --client-rank {self.rank}'
                 f' --round-length {epochs}'
@@ -726,18 +727,33 @@ class Client(Node):
                 f' --project {saving_path}/run/'
                 f' --name train-client{self.rank}'
                 f' --notest'
+                f' 2>&1 | tee {saving_path}/run/train-client{self.rank}/training.log'
             )
-            print(f"[CLIENT {self.rank}] Training script returned: {ret}")
-            if ret != 0:
-                print(f"[CLIENT {self.rank}] ERROR: Training script failed with return code {ret}")
+            print(f"[CLIENT {self.rank}] Running: {cmd}")
+            ret = os.system(cmd)
+            print(f"[CLIENT {self.rank}] Training returned: {ret}")
+            
+            # Show log file
+            if os.path.exists(f'{saving_path}/run/train-client{self.rank}/training.log'):
+                print(f"\n[CLIENT {self.rank}] Last 50 lines of training log:")
+                os.system(f"tail -50 {saving_path}/run/train-client{self.rank}/training.log")
         else:
             # Resume training with the new set of weights
             begin_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
             torch.save(self._ckpt, begin_weights)
-            ret = os.system(f'python {script_path} --resume {begin_weights}')
-            print(f"[CLIENT {self.rank}] Training script returned: {ret}")
-            if ret != 0:
-                print(f"[CLIENT {self.rank}] ERROR: Training script failed with return code {ret}")
+            
+            cmd = (
+                f'python {script_path} --resume {begin_weights}'
+                f' 2>&1 | tee {saving_path}/run/train-client{self.rank}/training.log'
+            )
+            print(f"[CLIENT {self.rank}] Running: {cmd}")
+            ret = os.system(cmd)
+            print(f"[CLIENT {self.rank}] Training returned: {ret}")
+            
+            # Show log file
+            if os.path.exists(f'{saving_path}/run/train-client{self.rank}/training.log'):
+                print(f"\n[CLIENT {self.rank}] Last 50 lines of training log:")
+                os.system(f"tail -50 {saving_path}/run/train-client{self.rank}/training.log")
         
         # ============= DEBUG CODE =============
         print(f"[CLIENT {self.rank}] Checking for weights file: {end_weights}")
