@@ -120,7 +120,7 @@ class Node:
                                 and v.shape == model.state_dict()[k].shape}
         model.load_state_dict(intersect_state_dict, strict=False)
         model.names = ckpt['model'].names
-        model.nc = ckpt['model'].cd 
+        model.nc = ckpt['model'].nc
         if architecture in ['yolov7-tiny', 'yolov7', 'yolov7x']:
             # Re-parameterization of P5 models
             idx = id_mp[architecture]
