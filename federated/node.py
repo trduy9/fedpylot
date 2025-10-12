@@ -218,7 +218,7 @@ class Node:
         weights = f'{saving_path}/weights/eval-kround{kround}.pt'
         torch.save(self._ckpt_reparam, weights)
         os.system(
-            f'python ./fedpylot/yolov7/test.py'
+            f'python /kaggle/working/fedpylot/yolov7/test.py'
             f' --kround {kround}'
             f' --saving-path {saving_path}'
             f' --weights {weights}'
