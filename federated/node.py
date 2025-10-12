@@ -695,7 +695,7 @@ class Client(Node):
     
     
     def train(self, nrounds: int, kround: int, epochs: int, architecture: str, data: str, bsz_train: int, imgsz: int,
-          cfg: str, hyp: str, workers: int, saving_path: str) -> None:
+            cfg: str, hyp: str, workers: int, saving_path: str) -> None:
         """Train the model on the local training set and store the new checkpoint and update."""
         end_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
         if architecture in ['yolov7-tiny', 'yolov7', 'yolov7x']:
@@ -705,11 +705,13 @@ class Client(Node):
         else:
             raise ValueError(f'Model architecture {architecture} not recognized.')
         
+        print(f"[CLIENT {self.rank}] Running training script: {script_path}")
+        
         if kround == 0:
             # Initialize the training loop and perform the first round of training
             begin_weights = f'{saving_path}/weights/train-kround{kround}-client{self.rank}.pt'
             torch.save(self._ckpt, begin_weights)
-            os.system(
+            ret = os.system(
                 f'python {script_path}'
                 f' --client-rank {self.rank}'
                 f' --round-length {epochs}'
@@ -725,20 +727,31 @@ class Client(Node):
                 f' --name train-client{self.rank}'
                 f' --notest'
             )
+            print(f"[CLIENT {self.rank}] Training script returned: {ret}")
+            if ret != 0:
+                print(f"[CLIENT {self.rank}] ERROR: Training script failed with return code {ret}")
         else:
             # Resume training with the new set of weights
             begin_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
             torch.save(self._ckpt, begin_weights)
-            os.system(f'python {script_path} --resume {begin_weights}')
+            ret = os.system(f'python {script_path} --resume {begin_weights}')
+            print(f"[CLIENT {self.rank}] Training script returned: {ret}")
+            if ret != 0:
+                print(f"[CLIENT {self.rank}] ERROR: Training script failed with return code {ret}")
         
-        # ============= DEBUG CODE THÊM VÀO ĐÂY =============
-        print(f"[CLIENT {self.rank}] Training ended. Checking for weights file...")
-        print(f"[CLIENT {self.rank}] Looking for: {end_weights}")
+        # ============= DEBUG CODE =============
+        print(f"[CLIENT {self.rank}] Checking for weights file: {end_weights}")
+        print(f"[CLIENT {self.rank}] File exists: {os.path.exists(end_weights)}")
         
         if not os.path.exists(end_weights):
             print(f"[CLIENT {self.rank}] ERROR: Weights file NOT found!")
             print(f"[CLIENT {self.rank}] Available files:")
             os.system(f"ls -la {saving_path}/run/train-client{self.rank}/weights/ 2>/dev/null || echo 'Directory not found'")
+            print(f"[CLIENT {self.rank}] WARNING: Using previous model, sending empty update.")
+            delta_it = {}
+            self.__update = delta_it
+            self._ckpt = self._ckpt
+            return
         else:
             print(f"[CLIENT {self.rank}] Weights file found. Loading...")
         # ============= HẾT DEBUG CODE =============
