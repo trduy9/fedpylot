@@ -472,10 +472,22 @@ class Client(Node):
               f' {sys.getsizeof(MPI.pickle.dumps((encrypted_update, tag, nonce, self.nsamples)))}')
         return encrypted_update, tag, nonce, self.nsamples
 
+    # def set_weights(self, encrypted_data: tuple[bytes, bytes, bytes], metadata: bool) -> None:
+    #     """Decrypt the weights or checkpoint with the symmetric key and save it."""
+    #     new_weights_encrypted, tag, nonce = encrypted_data
+    #     new_weights = self._symmetric_decryption(new_weights_encrypted, tag, nonce)
+    #     if metadata:
+    #         self._ckpt = new_weights
+    #     else:
+    #         model = self._ckpt['model']
+    #         model.load_state_dict(new_weights)
+    #         self._ckpt['model'] = model
+    
     def set_weights(self, encrypted_data: tuple[bytes, bytes, bytes], metadata: bool) -> None:
-        """Decrypt the weights or checkpoint with the symmetric key and save it."""
         new_weights_encrypted, tag, nonce = encrypted_data
         new_weights = self._symmetric_decryption(new_weights_encrypted, tag, nonce)
+        print(f"[Client {self.rank}] 🔑 Received model from server. Metadata={metadata}, "
+            f"Keys: {list(new_weights['model'].state_dict().keys())[:3] if metadata else len(new_weights)}")
         if metadata:
             self._ckpt = new_weights
         else:
