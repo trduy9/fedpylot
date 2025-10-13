@@ -186,10 +186,10 @@ def federated_secure_loop(num_clients, nrounds, epochs, saving_path,
 
     # ===== 4. Mỗi client nhận symmetric key và model khởi tạo =====
     print("📦 Distributing initial model to clients...")
-    encrypted_model = server.get_weights(metadata=True)
+    encrypted_models = server.get_weights(metadata=True)
     for i, client in enumerate(clients):
         client.symmetric_key = symmetric_keys[i]   # key riêng cho client i
-        client.set_weights(encrypted_model, metadata=True)
+        client.set_weights(encrypted_models[i], metadata=True)
         client.post_init_update(data=data, cfg=cfg, hyp=hyp, imgsz=imgsz)
 
     # ===== 5. Vòng lặp Federated Learning =====
