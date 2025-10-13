@@ -167,7 +167,7 @@ def federated_secure_loop(num_clients, nrounds, epochs, saving_path,
 
     # ===== 1. Tạo server và client =====
     print("🚀 Initializing Server and Clients...")
-    server = Server(server_opt='fedavg', server_lr=1.0, tau=1e-3, beta=0.1)
+    server = Server(server_opt='fedavg', serverlr=1.0, tau=1e-3, beta=0.1)
     clients = [Client(rank=i + 1) for i in range(num_clients)]
 
     # ===== 2. Trao đổi public keys =====
