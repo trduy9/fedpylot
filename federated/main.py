@@ -78,6 +78,8 @@ def federated_loop(node: Node, nrounds: int, epochs: int, saving_path: str, arch
         sd_encrypted = comm.gather(sd_encrypted, root=0)
         # Server level computation (server optimization, re-parameterization, and evaluation on the validation set)
         if node.rank == 0:
+            for i, item in enumerate(sd_encrypted):
+                print(f"[Server] Received update from rank {i}: {type(item)}")
             sd_encrypted.pop(0)
             node.aggregate(sd_encrypted)
             node.reparameterize(architecture)
