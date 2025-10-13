@@ -94,7 +94,7 @@ class Node:
         backup_hyp = ckpt['model'].hyp
         backup_gr = ckpt['model'].gr
         nc = ckpt['model'].nc
-        deploy_path = f'/kaggle/working/fedpylot/yolov7/cfg/deploy/{architecture}.yaml'
+        deploy_path = f'yolov7/cfg/deploy/{architecture}.yaml'
         id_mp = {
             'yolov7-tiny': 77,
             'yolov7': 105,
@@ -123,14 +123,12 @@ class Node:
                 model.state_dict()[f'model.{idx}.m.0.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.0.implicit'].data[:, i, ::].squeeze()
                 model.state_dict()[f'model.{idx}.m.1.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.1.implicit'].data[:, i, ::].squeeze()
                 model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
-            model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx}.im.2.implicit'].data[:, i, ::].squeeze()
             model.state_dict()[f'model.{idx}.m.0.bias'].data += sd[f'model.{idx}.m.0.weight'].mul(sd[f'model.{idx}.ia.0.implicit']).sum(1).squeeze()
             model.state_dict()[f'model.{idx}.m.1.bias'].data += sd[f'model.{idx}.m.1.weight'].mul(sd[f'model.{idx}.ia.1.implicit']).sum(1).squeeze()
             model.state_dict()[f'model.{idx}.m.2.bias'].data += sd[f'model.{idx}.m.2.weight'].mul(sd[f'model.{idx}.ia.2.implicit']).sum(1).squeeze()
             model.state_dict()[f'model.{idx}.m.0.bias'].data *= sd[f'model.{idx}.im.0.implicit'].data.squeeze()
             model.state_dict()[f'model.{idx}.m.1.bias'].data *= sd[f'model.{idx}.im.1.implicit'].data.squeeze()
             model.state_dict()[f'model.{idx}.m.2.bias'].data *= sd[f'model.{idx}.im.2.implicit'].data.squeeze()
-
         else:
             # Re-parameterization of P6 models
             idx = id_mp[architecture]
@@ -186,7 +184,6 @@ class Node:
         state_dict = ckpt['model'].float().state_dict()
         state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)
         model.load_state_dict(state_dict, strict=False)
-    
         # Model parameters
         nl = model.model[-1].nl  # number of detection layers (used for scaling hyp['obj'])
         hyp_dict['box'] *= 3. / nl  # scale to layers
@@ -204,7 +201,7 @@ class Node:
         weights = f'{saving_path}/weights/eval-kround{kround}.pt'
         torch.save(self._ckpt_reparam, weights)
         os.system(
-            f'python /kaggle/working/fedpylot/yolov7/test.py'
+            f'python ./yolov7/test.py'
             f' --kround {kround}'
             f' --saving-path {saving_path}'
             f' --weights {weights}'
@@ -282,20 +279,20 @@ class Server(Node):
 
     def initialize_model(self, weights: str) -> None:
         """Initialize the checkpoint from a pretrained weights file."""
-        # self._ckpt = torch.load(weights, map_location=self.device, weights_only=False)
+        self._ckpt = torch.load(weights, map_location=self.device, weights_only=False)
         
         # ckpt = torch.load(weights, map_location=self.device, weights_only=False)
         # print(f"Checkpoint keys: {list(ckpt.keys())}")  # ← Xem file có key 'model' không
         # self._ckpt = ckpt
         
-        ckpt = torch.load(weights, map_location=self.device, weights_only=False)
-        if 'model' not in ckpt:
-            print(f"[WARN] Pretrained weights at {weights} has no 'model' key. Wrapping it.")
-            # Load YOLO model manually
-            model = Model(cfg='/kaggle/working/fedpylot/yolov7/cfg/training/yolov7.yaml', ch=3, nc=8)  # chỉnh lại theo dataset bạn
-            model.load_state_dict(ckpt)
-            ckpt = {'model': model}
-        self._ckpt = ckpt
+        # ckpt = torch.load(weights, map_location=self.device, weights_only=False)
+        # if 'model' not in ckpt:
+        #     print(f"[WARN] Pretrained weights at {weights} has no 'model' key. Wrapping it.")
+        #     # Load YOLO model manually
+        #     model = Model(cfg='/kaggle/working/fedpylot/yolov7/cfg/training/yolov7.yaml', ch=3, nc=8)  # chỉnh lại theo dataset bạn
+        #     model.load_state_dict(ckpt)
+        #     ckpt = {'model': model}
+        # self._ckpt = ckpt
 
 
     def get_weights(self, metadata: bool) -> list[tuple[bytes, bytes, bytes]]:
@@ -492,7 +489,7 @@ class Client(Node):
         """Train the model on the local training set and store the new checkpoint and update."""
         end_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
         if architecture in ['yolov7-tiny', 'yolov7', 'yolov7x']:
-            script_path = '/kaggle/working/fedpylot/yolov7/train.py'
+            script_path = './yolov7/train.py'
         elif architecture in ['yolov7-w6', 'yolov7-e6', 'yolov7-d6', 'yolov7-e6e']:
             script_path = './yolov7/train_aux.py'
         else:
@@ -529,12 +526,12 @@ class Client(Node):
         
         if kround == 0:
             self.post_init_update(data, cfg, hyp, imgsz)
-        # w_t = self._ckpt['model'].half().state_dict()
+        w_t = self._ckpt['model'].half().state_dict()
         # w_t = self._ckpt['model'].state_dict()
-        if 'model' in new_ckpt:
-            w_t = new_ckpt['model'].state_dict()
-        else:
-            w_t = new_ckpt  # new_ckpt chỉ chứa state_dict
+        # if 'model' in new_ckpt:
+        #     w_t = new_ckpt['model'].state_dict()
+        # else:
+        #     w_t = new_ckpt  # new_ckpt chỉ chứa state_dict
 
         delta_it = copy.deepcopy(w_t)
         for key in delta_it.keys():
