@@ -156,6 +156,72 @@ def local_federated_loop(n_clients: int, nrounds: int, epochs: int, saving_path:
     print("\n✅ Federated training finished successfully.")
 
 
+def federated_secure_loop(num_clients, nrounds, epochs, saving_path,
+                          architecture, pretrained_weights, data,
+                          bsz_train, bsz_val, imgsz, conf_thres,
+                          iou_thres, cfg, hyp, workers):
+    """
+    Mô phỏng Federated Learning có mã hóa nhưng chạy tuần tự trên Kaggle.
+    Giữ nguyên cơ chế mã hóa của FedPylot (public/private/symmetric).
+    """
+
+    # ===== 1. Tạo server và client =====
+    print("🚀 Initializing Server and Clients...")
+    server = Server(server_opt='fedavg', server_lr=1.0, tau=1e-3, beta=0.1)
+    clients = [Client(rank=i + 1) for i in range(num_clients)]
+
+    # ===== 2. Trao đổi public keys =====
+    print("🔐 Exchanging public keys...")
+    for client in clients:
+        client.server_public_key = server.public_key
+    server.clients_public_keys = {client.rank: client.public_key for client in clients}
+
+    # ===== 3. Server khởi tạo model và symmetric key =====
+    print("🧠 Initializing model and symmetric keys...")
+    server.initialize_model(pretrained_weights)
+    server.generate_symmetric_key()
+
+    # symmetric_keys: list[encrypted_symmetric_key_for_each_client]
+    symmetric_keys = server.get_symmetric_key()
+
+    # ===== 4. Mỗi client nhận symmetric key và model khởi tạo =====
+    print("📦 Distributing initial model to clients...")
+    encrypted_model = server.get_weights(metadata=True)
+    for i, client in enumerate(clients):
+        client.symmetric_key = symmetric_keys[i]   # key riêng cho client i
+        client.set_weights(encrypted_model, metadata=True)
+        client.post_init_update(data=data, cfg=cfg, hyp=hyp, imgsz=imgsz)
+
+    # ===== 5. Vòng lặp Federated Learning =====
+    for rnd in range(nrounds):
+        print(f"\n🌐 ROUND {rnd + 1}/{nrounds}")
+        encrypted_updates = []
+
+        # --- Clients: local training ---
+        for client in clients:
+            print(f"🏋️ Client {client.rank} training locally...")
+            client.train(nrounds, rnd, epochs, architecture, data,
+                         bsz_train, imgsz, cfg, hyp, workers, saving_path)
+            update = client.get_update()  # encrypted gradient/update
+            encrypted_updates.append(update)
+
+        # --- Server: aggregate + reparameterize ---
+        print("🖥️ Server aggregating encrypted updates...")
+        server.aggregate(encrypted_updates)
+        server.reparameterize(architecture)
+
+        # --- Server: evaluate on validation set ---
+        server.test(rnd, saving_path, data, bsz_val, imgsz, conf_thres, iou_thres)
+
+        # --- Server gửi model mới cho các client ---
+        print("📤 Broadcasting new global weights to clients...")
+        new_encrypted_weights = server.get_weights(metadata=False)
+        for client in clients:
+            client.set_weights(new_encrypted_weights, metadata=False)
+
+    print("\n✅ Secure Federated Learning simulation completed successfully!")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--nrounds', type=int, default=3)
@@ -182,7 +248,7 @@ if __name__ == "__main__":
     os.makedirs(f"{saving_path}/weights", exist_ok=True)
     os.makedirs(f"{saving_path}/run", exist_ok=True)
 
-    local_federated_loop(
+    federated_secure_loop(
         n_clients=args.nclients,
         nrounds=args.nrounds,
         epochs=args.epochs,
