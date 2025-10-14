@@ -223,34 +223,126 @@ def federated_secure_loop(num_clients, nrounds, epochs, saving_path,
 
 
 
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument('--nrounds', type=int, default=3)
+#     parser.add_argument('--epochs', type=int, default=1)
+#     parser.add_argument('--nclients', type=int, default=2, help='number of simulated clients')
+#     parser.add_argument('--server-opt', type=str, default='fedavg')
+#     parser.add_argument('--server-lr', type=float, default=1.)
+#     parser.add_argument('--tau', type=float, default=1e-3)
+#     parser.add_argument('--beta', type=float, default=0.1)
+#     parser.add_argument('--architecture', type=str, default='yolov7')
+#     parser.add_argument('--weights', type=str, help='path to pretrained weights')
+#     parser.add_argument('--data', type=str, help='*.data path')
+#     parser.add_argument('--bsz-train', type=int, default=16)
+#     parser.add_argument('--bsz-val', type=int, default=16)
+#     parser.add_argument('--img', type=int, default=640)
+#     parser.add_argument('--conf', type=float, default=0.001)
+#     parser.add_argument('--iou', type=float, default=0.65)
+#     parser.add_argument('--cfg', type=str, default='yolov7/cfg/training/yolov7.yaml')
+#     parser.add_argument('--hyp', type=str)
+#     parser.add_argument('--workers', type=int, default=4)
+#     args = parser.parse_args()
+
+#     saving_path = 'experiments'
+#     os.makedirs(f"{saving_path}/weights", exist_ok=True)
+#     os.makedirs(f"{saving_path}/run", exist_ok=True)
+
+#     federated_secure_loop(
+#         num_clients=args.nclients,
+#         nrounds=args.nrounds,
+#         epochs=args.epochs,
+#         saving_path=saving_path,
+#         architecture=args.architecture,
+#         pretrained_weights=args.weights,
+#         data=args.data,
+#         bsz_train=args.bsz_train,
+#         bsz_val=args.bsz_val,
+#         imgsz=args.img,
+#         conf_thres=args.conf,
+#         iou_thres=args.iou,
+#         cfg=args.cfg,
+#         hyp=args.hyp,
+#         workers=args.workers,
+#     )
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--nrounds', type=int, default=3)
-    parser.add_argument('--epochs', type=int, default=1)
-    parser.add_argument('--nclients', type=int, default=2, help='number of simulated clients')
-    parser.add_argument('--server-opt', type=str, default='fedavg')
-    parser.add_argument('--server-lr', type=float, default=1.)
-    parser.add_argument('--tau', type=float, default=1e-3)
-    parser.add_argument('--beta', type=float, default=0.1)
-    parser.add_argument('--architecture', type=str, default='yolov7')
+    parser.add_argument('--nrounds', type=int, default=30, help='number of communication rounds')
+    parser.add_argument('--epochs', type=int, default=5, help='number of epochs executed per communication round')
+    parser.add_argument('--server-opt', type=str, default='fedavg', help='aggregation algorithm/server-side optimizer')
+    parser.add_argument('--server-lr', type=float, default=1., help='server learning rate')
+    parser.add_argument('--tau', type=float, default=1e-3, help='server adaptivity for FedAdagrad, FedAdam and FedYogi')
+    parser.add_argument('--beta', type=float, default=0.1, help='server momentum with FedAvgM')
+    parser.add_argument('--architecture', type=str, default='yolov7', help='model architecture')
     parser.add_argument('--weights', type=str, help='path to pretrained weights')
     parser.add_argument('--data', type=str, help='*.data path')
-    parser.add_argument('--bsz-train', type=int, default=16)
-    parser.add_argument('--bsz-val', type=int, default=16)
-    parser.add_argument('--img', type=int, default=640)
-    parser.add_argument('--conf', type=float, default=0.001)
-    parser.add_argument('--iou', type=float, default=0.65)
-    parser.add_argument('--cfg', type=str, default='yolov7/cfg/training/yolov7.yaml')
-    parser.add_argument('--hyp', type=str)
-    parser.add_argument('--workers', type=int, default=4)
+    parser.add_argument('--bsz-train', type=int, default=32, help='batch size used for training')
+    parser.add_argument('--bsz-val', type=int, default=32, help='batch size used for evaluation')
+    parser.add_argument('--img', type=int, default=640, help='inference size (pixels)')
+    parser.add_argument('--conf', type=float, default=0.001, help='object confidence threshold')
+    parser.add_argument('--iou', type=float, default=0.65, help='IOU threshold for NMS')
+    parser.add_argument('--cfg', type=str, default='yolov7/cfg/training/yolov7.yaml', help='model.yaml path')
+    parser.add_argument('--hyp', type=str, help='hyperparameters path, also decides client-side optimizer')
+    parser.add_argument('--workers', type=int, default=8, help='number of workers to use during training')
     args = parser.parse_args()
 
-    saving_path = 'experiments'
-    os.makedirs(f"{saving_path}/weights", exist_ok=True)
-    os.makedirs(f"{saving_path}/run", exist_ok=True)
+    # Initialize MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    node = init_node(rank, args.server_opt, args.server_lr, args.tau, args.beta)
+    node.get_device_info()
 
-    federated_secure_loop(
-        num_clients=args.nclients,
+    # Save the number of training examples held by the clients to perform weighted average aggregation of the updates
+    with open(args.data) as f:
+        if node.rank != 0:
+            img_path = os.path.join(yaml.load(f, Loader=yaml.SafeLoader)['train'], f'client{node.rank}', 'images')
+            node.nsamples = len(os.listdir(img_path))
+
+    # The clients exchange their public keys with the central server and vice-versa
+    share_public_keys(node)
+
+    # Create saving folder
+    saving_path = 'experiments'
+    os.makedirs(saving_path)
+    os.makedirs(saving_path + '/weights/')
+    os.makedirs(saving_path + '/run/')
+
+    # Save config, cfg, hyp and data files
+    if node.rank == 0:
+        with open(saving_path + '/config.txt', 'w') as f:
+            f.write(f'nrounds: {args.nrounds}\n')
+            f.write(f'epochs: {args.epochs}\n')
+            f.write(f'server opt: {args.server_opt}\n')
+            f.write(f'server learning rate: {args.server_lr}\n')
+            if args.server_opt == 'fedavgm':
+                f.write(f'fedavgm - beta: {args.beta}\n')
+            if args.server_opt == 'fedadagrad':
+                f.write(f'fedadagrad - tau: {args.tau}\n')
+            if args.server_opt in ['fedadam', 'fedyogi']:
+                f.write(f'{args.server_opt} - tau: {args.tau}\n')
+                f.write(f'{args.server_opt} - beta1: {0.9}\n')
+                f.write(f'{args.server_opt} - beta2: {0.99}\n')
+            f.write(f'architecture: {args.architecture}\n')
+            f.write(f'weights: {args.weights}\n')
+            f.write(f'data: {args.data}\n')
+            f.write(f'batch size (train): {args.bsz_train}\n')
+            f.write(f'batch size (eval): {args.bsz_val}\n')
+            f.write(f'img: {args.img}\n')
+            f.write(f'conf: {args.conf}\n')
+            f.write(f'iou: {args.iou}\n')
+            f.write(f'cfg: {args.cfg}\n')
+            f.write(f'hyp: {args.hyp}\n')
+            f.write(f'workers: {args.workers}\n')
+        shutil.copy(args.cfg, saving_path)
+        shutil.copy(args.hyp, saving_path)
+        shutil.copy(args.data, saving_path)
+
+    # Launch federated learning experiment
+    federated_loop(
+        node=node,
         nrounds=args.nrounds,
         epochs=args.epochs,
         saving_path=saving_path,
@@ -264,100 +356,8 @@ if __name__ == "__main__":
         iou_thres=args.iou,
         cfg=args.cfg,
         hyp=args.hyp,
-        workers=args.workers,
+        workers=args.workers
     )
 
-
-# if __name__ == "__main__":
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument('--nrounds', type=int, default=30, help='number of communication rounds')
-#     parser.add_argument('--epochs', type=int, default=5, help='number of epochs executed per communication round')
-#     parser.add_argument('--server-opt', type=str, default='fedavg', help='aggregation algorithm/server-side optimizer')
-#     parser.add_argument('--server-lr', type=float, default=1., help='server learning rate')
-#     parser.add_argument('--tau', type=float, default=1e-3, help='server adaptivity for FedAdagrad, FedAdam and FedYogi')
-#     parser.add_argument('--beta', type=float, default=0.1, help='server momentum with FedAvgM')
-#     parser.add_argument('--architecture', type=str, default='yolov7', help='model architecture')
-#     parser.add_argument('--weights', type=str, help='path to pretrained weights')
-#     parser.add_argument('--data', type=str, help='*.data path')
-#     parser.add_argument('--bsz-train', type=int, default=32, help='batch size used for training')
-#     parser.add_argument('--bsz-val', type=int, default=32, help='batch size used for evaluation')
-#     parser.add_argument('--img', type=int, default=640, help='inference size (pixels)')
-#     parser.add_argument('--conf', type=float, default=0.001, help='object confidence threshold')
-#     parser.add_argument('--iou', type=float, default=0.65, help='IOU threshold for NMS')
-#     parser.add_argument('--cfg', type=str, default='yolov7/cfg/training/yolov7.yaml', help='model.yaml path')
-#     parser.add_argument('--hyp', type=str, help='hyperparameters path, also decides client-side optimizer')
-#     parser.add_argument('--workers', type=int, default=8, help='number of workers to use during training')
-#     args = parser.parse_args()
-
-    # # Initialize MPI
-    # comm = MPI.COMM_WORLD
-    # rank = comm.Get_rank()
-    # node = init_node(rank, args.server_opt, args.server_lr, args.tau, args.beta)
-    # node.get_device_info()
-
-    # # Save the number of training examples held by the clients to perform weighted average aggregation of the updates
-    # with open(args.data) as f:
-    #     if node.rank != 0:
-    #         img_path = os.path.join(yaml.load(f, Loader=yaml.SafeLoader)['train'], f'client{node.rank}', 'images')
-    #         node.nsamples = len(os.listdir(img_path))
-
-    # # The clients exchange their public keys with the central server and vice-versa
-    # share_public_keys(node)
-
-    # # Create saving folder
-    # saving_path = 'experiments'
-    # os.makedirs(saving_path)
-    # os.makedirs(saving_path + '/weights/')
-    # os.makedirs(saving_path + '/run/')
-
-    # # Save config, cfg, hyp and data files
-    # if node.rank == 0:
-    #     with open(saving_path + '/config.txt', 'w') as f:
-    #         f.write(f'nrounds: {args.nrounds}\n')
-    #         f.write(f'epochs: {args.epochs}\n')
-    #         f.write(f'server opt: {args.server_opt}\n')
-    #         f.write(f'server learning rate: {args.server_lr}\n')
-    #         if args.server_opt == 'fedavgm':
-    #             f.write(f'fedavgm - beta: {args.beta}\n')
-    #         if args.server_opt == 'fedadagrad':
-    #             f.write(f'fedadagrad - tau: {args.tau}\n')
-    #         if args.server_opt in ['fedadam', 'fedyogi']:
-    #             f.write(f'{args.server_opt} - tau: {args.tau}\n')
-    #             f.write(f'{args.server_opt} - beta1: {0.9}\n')
-    #             f.write(f'{args.server_opt} - beta2: {0.99}\n')
-    #         f.write(f'architecture: {args.architecture}\n')
-    #         f.write(f'weights: {args.weights}\n')
-    #         f.write(f'data: {args.data}\n')
-    #         f.write(f'batch size (train): {args.bsz_train}\n')
-    #         f.write(f'batch size (eval): {args.bsz_val}\n')
-    #         f.write(f'img: {args.img}\n')
-    #         f.write(f'conf: {args.conf}\n')
-    #         f.write(f'iou: {args.iou}\n')
-    #         f.write(f'cfg: {args.cfg}\n')
-    #         f.write(f'hyp: {args.hyp}\n')
-    #         f.write(f'workers: {args.workers}\n')
-    #     shutil.copy(args.cfg, saving_path)
-    #     shutil.copy(args.hyp, saving_path)
-    #     shutil.copy(args.data, saving_path)
-
-    # Launch federated learning experiment
-    # federated_loop(
-    #     node=node,
-    #     nrounds=args.nrounds,
-    #     epochs=args.epochs,
-    #     saving_path=saving_path,
-    #     architecture=args.architecture,
-    #     pretrained_weights=args.weights,
-    #     data=args.data,
-    #     bsz_train=args.bsz_train,
-    #     bsz_val=args.bsz_val,
-    #     imgsz=args.img,
-    #     conf_thres=args.conf,
-    #     iou_thres=args.iou,
-    #     cfg=args.cfg,
-    #     hyp=args.hyp,
-    #     workers=args.workers
-    # )
-
-    # # Gather clients' local analytics back to the orchestrating node in order to back up the files
-    # gather_analytics(saving_path, node)
+    # Gather clients' local analytics back to the orchestrating node in order to back up the files
+    gather_analytics(saving_path, node)
