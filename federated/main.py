@@ -7,6 +7,7 @@ import sys
 sys.path.append('yolov7')
 
 # from mpi4py import MPI
+from mpi4py import MPI
 import pandas as pd
 import yaml
 
