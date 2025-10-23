@@ -377,7 +377,7 @@ sys.path.append('yolov7')
 import pandas as pd
 import yaml
 
-from node_kaggle import Client, Server
+from node import Client, Server
 
 
 def federated_loop(server: Server, clients: list, nrounds: int, epochs: int, saving_path: str, 
