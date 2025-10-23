@@ -1000,7 +1000,7 @@ class Server(Node):
 
     def initialize_model(self, weights: str) -> None:
         """Initialize checkpoint from pretrained weights."""
-        self._ckpt = torch.load(weights, map_location=self.device)
+        self._ckpt = torch.load(weights, map_location=self.device, weights_only=False)
 
     def get_weights(self, metadata: bool) -> dict:
         """Return weights (with or without metadata)."""
@@ -1177,7 +1177,7 @@ class Client(Node):
             torch.save(self._ckpt, begin_weights)
             os.system(f'python {script_path} --resume {begin_weights}')
         
-        new_ckpt = torch.load(end_weights, map_location=self.device)
+        new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=False)
         
         # Compute local update: delta_it = w_t - w_it
         w_it = new_ckpt['model'].state_dict()
