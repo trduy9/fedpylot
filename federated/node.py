@@ -825,6 +825,7 @@ import yaml
 
 from models.yolo import Model
 from utils.torch_utils import intersect_dicts, is_parallel, select_device
+os.environ['WANDB_MODE'] = 'disabled' 
 
 
 class Node:
