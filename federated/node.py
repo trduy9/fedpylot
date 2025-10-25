@@ -816,9 +816,6 @@
 
 
 
-
-
-# FedPylot Kaggle Version - Simplified Node Classes (No Encryption)
 import copy
 import os
 import sys
