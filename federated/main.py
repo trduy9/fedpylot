@@ -367,7 +367,7 @@
 
 
 
-# FedPylot Kaggle Version - Simplified for single GPU
+
 import argparse
 import os
 import shutil

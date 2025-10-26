@@ -1183,7 +1183,7 @@ class Client(Node):
         
         delta_it = copy.deepcopy(w_t)
         for key in delta_it.keys():
-            delta_it[key] = w_t[key] - w_it[key]
+            delta_it[key] = w_it[key] - w_t[key]
         
         self.__update = delta_it
         self._ckpt = new_ckpt
