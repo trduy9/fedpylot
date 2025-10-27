@@ -4,7 +4,7 @@
 
 # base path to subsets
 train: /kaggle/working/fedpylot/datasets/kitti
-val: /kaggle/working/fedpylot/datasets/kitti/
+val: /kaggle/working/fedpylot/datasets/kitti
 
 # number of classes
 nc: 8
