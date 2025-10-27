@@ -1200,11 +1200,13 @@ class Client(Node):
         
         # Compute local update: delta_it = w_t - w_it
         w_it = new_ckpt['model'].state_dict()
-        w_t = self._ckpt['model'].half().state_dict()
+        # w_t = self._ckpt['model'].half().state_dict()
+        w_t = self._ckpt['model'].float().state_dict()
+        
         
         delta_it = copy.deepcopy(w_t)
         for key in delta_it.keys():
-            delta_it[key] = w_it[key] - w_t[key]
+            delta_it[key] = w_t[key] - w_it[key]
         
         self.__update = delta_it
         self._ckpt = new_ckpt
