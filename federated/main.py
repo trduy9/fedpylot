@@ -425,6 +425,7 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int, sav
             update = client.get_update()
             updates.append(update)
             nsamples_list.append(client.nsamples)
+            client.test(kround, saving_path, data, bsz_val, imgsz, conf_thres, iou_thres)
         
         # Server aggregation
         print(f"\n--- Server Aggregation ---")
