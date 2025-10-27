@@ -906,8 +906,37 @@ class Node:
             # P6 models reparameterization (similar logic)
             idx = id_mp[architecture]
             idx2 = idx + 4
-            # ... (giữ nguyên logic từ code gốc)
-        
+            model.state_dict()[f'model.{idx}.m.0.weight'].data -= model.state_dict()[f'model.{idx}.m.0.weight'].data
+            model.state_dict()[f'model.{idx}.m.1.weight'].data -= model.state_dict()[f'model.{idx}.m.1.weight'].data
+            model.state_dict()[f'model.{idx}.m.2.weight'].data -= model.state_dict()[f'model.{idx}.m.2.weight'].data
+            model.state_dict()[f'model.{idx}.m.3.weight'].data -= model.state_dict()[f'model.{idx}.m.3.weight'].data
+            model.state_dict()[f'model.{idx}.m.0.weight'].data += sd[f'model.{idx2}.m.0.weight'].data
+            model.state_dict()[f'model.{idx}.m.1.weight'].data += sd[f'model.{idx2}.m.1.weight'].data
+            model.state_dict()[f'model.{idx}.m.2.weight'].data += sd[f'model.{idx2}.m.2.weight'].data
+            model.state_dict()[f'model.{idx}.m.3.weight'].data += sd[f'model.{idx2}.m.3.weight'].data
+            model.state_dict()[f'model.{idx}.m.0.bias'].data -= model.state_dict()[f'model.{idx}.m.0.bias'].data
+            model.state_dict()[f'model.{idx}.m.1.bias'].data -= model.state_dict()[f'model.{idx}.m.1.bias'].data
+            model.state_dict()[f'model.{idx}.m.2.bias'].data -= model.state_dict()[f'model.{idx}.m.2.bias'].data
+            model.state_dict()[f'model.{idx}.m.3.bias'].data -= model.state_dict()[f'model.{idx}.m.3.bias'].data
+            model.state_dict()[f'model.{idx}.m.0.bias'].data += sd[f'model.{idx2}.m.0.bias'].data
+            model.state_dict()[f'model.{idx}.m.1.bias'].data += sd[f'model.{idx2}.m.1.bias'].data
+            model.state_dict()[f'model.{idx}.m.2.bias'].data += sd[f'model.{idx2}.m.2.bias'].data
+            model.state_dict()[f'model.{idx}.m.3.bias'].data += sd[f'model.{idx2}.m.3.bias'].data
+            for i in range((model.nc + 5) * anchors):
+                model.state_dict()[f'model.{idx}.m.0.weight'].data[i, :, :, :] *= sd[f'model.{idx2}.im.0.implicit'].data[:, i, : :].squeeze()
+                model.state_dict()[f'model.{idx}.m.1.weight'].data[i, :, :, :] *= sd[f'model.{idx2}.im.1.implicit'].data[:, i, : :].squeeze()
+                model.state_dict()[f'model.{idx}.m.2.weight'].data[i, :, :, :] *= sd[f'model.{idx2}.im.2.implicit'].data[:, i, : :].squeeze()
+                model.state_dict()[f'model.{idx}.m.3.weight'].data[i, :, :, :] *= sd[f'model.{idx2}.im.3.implicit'].data[:, i, : :].squeeze()
+            model.state_dict()[f'model.{idx}.m.0.bias'].data += sd[f'model.{idx2}.m.0.weight'].mul(sd[f'model.{idx2}.ia.0.implicit']).sum(1).squeeze()
+            model.state_dict()[f'model.{idx}.m.1.bias'].data += sd[f'model.{idx2}.m.1.weight'].mul(sd[f'model.{idx2}.ia.1.implicit']).sum(1).squeeze()
+            model.state_dict()[f'model.{idx}.m.2.bias'].data += sd[f'model.{idx2}.m.2.weight'].mul(sd[f'model.{idx2}.ia.2.implicit']).sum(1).squeeze()
+            model.state_dict()[f'model.{idx}.m.3.bias'].data += sd[f'model.{idx2}.m.3.weight'].mul(sd[f'model.{idx2}.ia.3.implicit']).sum(1).squeeze()
+            model.state_dict()[f'model.{idx}.m.0.bias'].data *= sd[f'model.{idx2}.im.0.implicit'].data.squeeze()
+            model.state_dict()[f'model.{idx}.m.1.bias'].data *= sd[f'model.{idx2}.im.1.implicit'].data.squeeze()
+            model.state_dict()[f'model.{idx}.m.2.bias'].data *= sd[f'model.{idx2}.im.2.implicit'].data.squeeze()
+            model.state_dict()[f'model.{idx}.m.3.bias'].data *= sd[f'model.{idx2}.im.3.implicit'].data.squeeze()
+            
+        # Saving re-parameterized model
         model.hyp = backup_hyp
         model.gr = backup_gr
         self._ckpt_reparam = {
