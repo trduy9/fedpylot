@@ -3,8 +3,8 @@
 # https://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=2d
 
 # base path to subsets
-train: \fedpylot\datasets\kitti
-val: \fedpylot\datasets\kitti
+train: F:\FederatedLearning\FedPylot\fedpylot\datasets\kitti
+val: F:\FederatedLearning\FedPylot\fedpylot\datasets\kitti
 
 # number of classes
 nc: 8
