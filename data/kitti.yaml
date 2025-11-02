@@ -11,3 +11,4 @@ nc: 8
 
 # class names
 names: ['Car', 'Van', 'Truck', 'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram', 'Misc']
+
