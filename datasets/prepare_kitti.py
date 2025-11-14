@@ -176,7 +176,7 @@ def get_dirichlet_splits(label_path: str, class_map: dict, nclients: int, val_fr
         class_map: mapping từ tên class sang ID
         nclients: số lượng clients
         val_frac: tỷ lệ validation cho server
-        alpha: tham số Dirichlet (nhỏ hơn = non-IID mạnh hơn)
+        alpha: tham số Dirichlet
     
     Returns:
         dict: {image_id: 'client1'/'client2'/.../'server'}
