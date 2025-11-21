@@ -367,7 +367,7 @@
 
 
 
-
+import time
 import argparse
 import os
 import shutil
@@ -386,6 +386,14 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int, sav
                    cfg: str, hyp: str, workers: int) -> None:
     """Orchestrate the federated learning experiment in a sequential manner."""
     
+    if server.use_oort:
+        for client in clients:
+            server.oort_sampler.register_client(
+                client.rank,
+                client.nsamples,
+                duration=1.0  # Initial estimate
+            )
+    
     # Server initializes model
     print("Initializing model on server...")
     server.initialize_model(pretrained_weights)
@@ -403,12 +411,45 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int, sav
                 client.set_weights(initial_weights, metadata=True)
                 client.post_init_update(data=data, cfg=cfg, hyp=hyp, imgsz=imgsz)
         
+        if server.use_oort and kround > 0:  # Skip round 0
+            feasible = [c.rank for c in clients]
+            selected_ranks = server.oort_sampler.select_clients(
+                num_clients=len(clients),
+                feasible_clients=feasible,
+                round_num=kround
+            )
+            active_clients = [c for c in clients if c.rank in selected_ranks]
+            print(f"[Oort] Selected {len(active_clients)}/{len(clients)} clients")
+        else:
+            active_clients = clients
+        
         # Client training (sequential to avoid memory issues on single GPU)
         updates = []
         nsamples_list = []
         
-        for client in clients:
+        # for client in clients:
+        #     print(f"\n--- Training Client {client.rank} ---")
+        #     client.train(
+        #         nrounds=nrounds,
+        #         kround=kround,
+        #         epochs=epochs,
+        #         architecture=architecture,
+        #         data=data,
+        #         bsz_train=bsz_train,
+        #         imgsz=imgsz,
+        #         cfg=cfg,
+        #         hyp=hyp,
+        #         workers=workers,
+        #         saving_path=saving_path
+        #     )
+        #     update = client.get_update()
+        #     updates.append(update)
+        #     nsamples_list.append(client.nsamples)
+        
+        for client in active_clients:
             print(f"\n--- Training Client {client.rank} ---")
+            train_start = time.time()
+            
             client.train(
                 nrounds=nrounds,
                 kround=kround,
@@ -422,9 +463,21 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int, sav
                 workers=workers,
                 saving_path=saving_path
             )
+            
+            train_duration = time.time() - train_start
             update = client.get_update()
             updates.append(update)
             nsamples_list.append(client.nsamples)
+            
+            if server.use_oort and kround > 0:
+                # Assume loss is stored somewhere during training
+                client_loss = 0.5  # Placeholder - get from actual training
+                server.oort_sampler.update_client(
+                    client.rank,
+                    loss=client_loss,
+                    duration=train_duration,
+                    round_num=kround
+                )
             
         
         # Server aggregation
@@ -484,11 +537,15 @@ if __name__ == "__main__":
     parser.add_argument('--cfg', type=str, default='yolov7/cfg/training/yolov7.yaml', help='model.yaml path')
     parser.add_argument('--hyp', type=str, required=True, help='hyperparameters path')
     parser.add_argument('--workers', type=int, default=4, help='number of workers')
+    parser.add_argument('--use-oort', action='store_true', 
+                    help='Enable Oort client selection')
+    parser.add_argument('--oort-exploration', type=float, default=0.9,
+                    help='Oort exploration factor')
     args = parser.parse_args()
 
     # Initialize server
     print("Initializing server...")
-    server = Server(args.server_opt, args.server_lr, args.tau, args.beta)
+    server = Server(args.server_opt, args.server_lr, args.tau, args.beta, use_oort=args.use_oort)
     server.get_device_info()
     
     # Initialize clients
