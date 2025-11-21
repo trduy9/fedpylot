@@ -826,6 +826,7 @@ import yaml
 from models.yolo import Model
 from utils.torch_utils import intersect_dicts, is_parallel, select_device
 os.environ['WANDB_MODE'] = 'disabled' 
+from oort.oort_wrapper import OortClientSampler
 
 
 class Node:
@@ -996,11 +997,16 @@ class Server(Node):
     """Server node for aggregation."""
 
     def __init__(self, server_opt: str = 'fedavg', serverlr: float = 1., 
-                 tau: float = None, beta: float = None) -> None:
+                 tau: float = None, beta: float = None,
+                 use_oort: bool = False):
         """Initialize server with rank 0."""
         super().__init__(rank=0)
         self.server_opt = server_opt
         self.server_lr = serverlr
+        self.use_oort = use_oort
+        if use_oort:
+            self.oort_sampler = OortClientSampler({})
+            logging.info("✓ Oort client selection enabled")
         
         if self.server_opt == 'fedavgm':
             self.beta = beta

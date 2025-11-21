@@ -537,13 +537,13 @@ if __name__ == "__main__":
     parser.add_argument('--cfg', type=str, default='yolov7/cfg/training/yolov7.yaml', help='model.yaml path')
     parser.add_argument('--hyp', type=str, required=True, help='hyperparameters path')
     parser.add_argument('--workers', type=int, default=4, help='number of workers')
-    parser.add_argument('--use_oort', action='store_true', help='Enable Oort client selection')
+    parser.add_argument('--use-oort', action='store_true', help='Enable Oort client selection')
     parser.add_argument('--oort-exploration', type=float, default=0.9, help='Oort exploration factor')
     args = parser.parse_args()
 
     # Initialize server
     print("Initializing server...")
-    server = Server(args.server_opt, args.server_lr, args.tau, args.beta, use_oort=args.use_oort)
+    server = Server(args.server_opt, args.server_lr, args.tau, args.beta, use_oort = args.use_oort)
     server.get_device_info()
     
     # Initialize clients
