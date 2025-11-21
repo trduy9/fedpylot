@@ -826,7 +826,7 @@ import yaml
 from models.yolo import Model
 from utils.torch_utils import intersect_dicts, is_parallel, select_device
 os.environ['WANDB_MODE'] = 'disabled' 
-from ..oort.oort_wrapper import OortClientSampler
+from fedpylot.oort.oort_wrapper import OortClientSampler
 
 
 class Node:
