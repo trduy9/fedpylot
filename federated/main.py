@@ -770,6 +770,15 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
                 print(f"  Warning: Could not extract loss: {e}")
                 client_loss = 1.0  # Fallback
                 client_losses.append(client_loss)
+                
+             # Update Oort 
+            if server.use_oort and kround >= (oort_start_round - 1):
+                server.oort_sampler.update_client(
+                    client.rank,
+                    loss=client_loss,
+                    duration=train_duration,
+                    round_num=kround
+                )
 
         # Server aggregation
         print(f"\n--- Server Aggregation ---")
