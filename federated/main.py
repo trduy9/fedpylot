@@ -677,6 +677,7 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
     oort_start_round: round index (0-based) to start Oort selection. If 0 then Oort from round 0.
     """
 
+    print(len(clients))
     # Register clients to Oort if used
     if server.use_oort:
         for client in clients:
@@ -726,6 +727,8 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
 
         updates = []
         nsamples_list = []
+        client_durations = []
+        client_losses = []
 
         for client in active_clients:
             print(f"\n--- Training Client {client.rank} ---")
@@ -747,26 +750,32 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
             )
 
             train_duration = time.time() - train_start
+            client_durations.append(train_duration)
             update = client.get_update()
             updates.append(update)
             nsamples_list.append(client.nsamples)
+            
+            client_loss = None
+            if isinstance(update, dict):
+                client_loss = update.get('loss')
+            # fallback if not present
+            if client_loss is None:
+            # Optionally try reading a file produced by client training, else fallback to small positive
+                client_loss = 0.5
+            client_losses.append(client_loss)
+            print(f"  Loss: {client_loss:.4f}")
+            print(f"  Duration: {train_duration:.2f}s")
+            print(f"  Samples: {client.nsamples}")
 
             # Update Oort with real loss if possible
             if server.use_oort and kround >= oort_start_round:
-                # Try to extract loss from update dict with common keys
-                client_loss = None
-                if isinstance(update, dict):
-                    client_loss = update.get('loss') or update.get('train_loss') or update.get('local_loss')
-                # fallback if not present
-                if client_loss is None:
-                    # Optionally try reading a file produced by client training, else fallback to small positive
-                    client_loss = 0.5
                 server.oort_sampler.update_client(
                     client.rank,
                     loss=client_loss,
                     duration=train_duration,
                     round_num=kround
                 )
+            
 
         # Server aggregation
         print(f"\n--- Server Aggregation ---")

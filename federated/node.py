@@ -823,6 +823,7 @@ import logging
 import torch
 import yaml
 import math
+import pandas as pd
 
 from models.yolo import Model
 from utils.torch_utils import intersect_dicts, is_parallel, select_device
@@ -1171,85 +1172,111 @@ class Client(Node):
             model.load_state_dict(new_weights)
             self._ckpt['model'] = model
             
-    def extract_losses(self, saving_path: str, epochs: int = 1) -> float:
+    def extract_losses(self, saving_path: str, epochs: int, nrounds: int) -> float:
         """
-        Extract training loss using BEST PRACTICE approach:
-        - Use average total_loss from last 20% batches of final epoch
-        - This balances smoothness and recency for Oort statistical utility
-        
+        Extract training loss from the last epoch of current round
         Args:
             saving_path: Path to training results
-            epochs: Number of epochs in this round
+            epochs: Number of epochs per round
+            nrounds: Current round number (1-indexed)
         
         Returns:
-            Average total training loss
+            Total training loss from the last epoch of current round
         """
         try:
-            # Method 1: Read from training_losses.csv (PREFERRED)
-            loss_file = f'{saving_path}/run/train-client{self.rank}/training_losses.csv'
-            
-            if os.path.exists(loss_file):
-                df = pd.read_csv(loss_file)
-                
-                # Check if total_loss column exists
-                if len(df) > 0 and 'train/total_loss' in df.columns:
-                    total_batches = len(df)
-                    batches_per_epoch = total_batches // max(1, epochs)
-                    
-                    # Take last 20% of final epoch (minimum 5 batches, maximum 50)
-                    n_batches = min(50, max(5, int(batches_per_epoch * 0.2)))
-                    last_batches = df.tail(n_batches)
-                    
-                    # Use total_loss directly
-                    avg_loss = last_batches['train/total_loss'].mean()
-                    
-                    logging.info(f"[Client {self.rank}] Extracted total_loss from last {n_batches}/{total_batches} batches: {avg_loss:.4f}")
-                    return float(avg_loss)
-                
-                # Fallback: sum components if total_loss not available
-                elif len(df) > 0 and 'train/box_loss' in df.columns:
-                    total_batches = len(df)
-                    batches_per_epoch = total_batches // max(1, epochs)
-                    n_batches = min(50, max(5, int(batches_per_epoch * 0.2)))
-                    last_batches = df.tail(n_batches)
-                    
-                    avg_loss = (
-                        last_batches['train/box_loss'].mean() +
-                        last_batches['train/obj_loss'].mean() +
-                        last_batches['train/cls_loss'].mean()
-                    )
-                    
-                    logging.info(f"[Client {self.rank}] Computed total_loss from components (last {n_batches} batches): {avg_loss:.4f}")
-                    return float(avg_loss)
-            
-            # Method 2: Fallback to results.txt (epoch-level average)
             results_file = f'{saving_path}/run/train-client{self.rank}/results.txt'
+            
             if os.path.exists(results_file):
                 try:
-                    # Parse with pandas
-                    df_results = pd.read_csv(results_file, sep=r'\s+', header=None, 
-                                            names=['epoch', 'gpu_mem', 'box', 'obj', 'cls', 
-                                                   'total', 'labels', 'img_size'])
+                    # Parse results.txt
+                    df_results = pd.read_csv(
+                        results_file, 
+                        sep=r'\s+', 
+                        header=None,
+                        names=['epoch', 'gpu_mem', 'box', 'obj', 'cls', 
+                            'total', 'labels', 'img_size']
+                    )
+                    
                     if len(df_results) > 0:
-                        # Use 'total' column (index 5)
-                        last_row = df_results.iloc[-1]
-                        total_loss = float(last_row['total'])
-                        logging.info(f"[Client {self.rank}] Extracted total_loss from results.txt: {total_loss:.4f}")
-                        return total_loss
+                        # Calculate the last epoch index of current round
+                        last_epoch_idx = nrounds * epochs - 1  # 0-indexed
+                        
+                        # Ensure index is valid
+                        if last_epoch_idx < len(df_results):
+                            loss = df_results.iloc[last_epoch_idx]['total']
+                            
+                            logging.info(
+                                f"[Client {self.rank}] Round {nrounds} - "
+                                f"Loss at epoch {last_epoch_idx}: {loss:.4f} "
+                                f"(box: {df_results.iloc[last_epoch_idx]['box']:.4f}, "
+                                f"obj: {df_results.iloc[last_epoch_idx]['obj']:.4f}, "
+                                f"cls: {df_results.iloc[last_epoch_idx]['cls']:.4f})"
+                            )
+                            return float(loss)
+                        else:
+                            # Fallback: take the last available epoch
+                            logging.warning(
+                                f"[Client {self.rank}] Expected epoch {last_epoch_idx} "
+                                f"but file only has {len(df_results)} epochs. Using last epoch."
+                            )
+                            loss = df_results.iloc[-1]['total']
+                            logging.info(f"[Client {self.rank}] Loss at last available epoch: {loss:.4f}")
+                            return float(loss)
+                        
                 except Exception as parse_err:
+                    logging.warning(f"[Client {self.rank}] Pandas parsing failed: {parse_err}")
+                    
                     # Manual parsing fallback
                     with open(results_file, 'r') as f:
-                        lines = f.readlines()
-                        if lines:
-                            last_line = lines[-1].strip().split()
-                            if len(last_line) >= 6:
-                                # Column 5 (index 5) is total loss
-                                total_loss = float(last_line[5])
-                                logging.info(f"[Client {self.rank}] Extracted total_loss from results.txt (manual): {total_loss:.4f}")
-                                return total_loss
+                        lines = [l.strip() for l in f.readlines() if l.strip()]
+                    
+                    if lines:
+                        last_epoch_idx = nrounds * epochs - 1
+                        
+                        if last_epoch_idx < len(lines):
+                            parts = lines[last_epoch_idx].split()
+                            if len(parts) >= 6:
+                                loss = float(parts[5])
+                                logging.info(f"[Client {self.rank}] Loss at epoch {last_epoch_idx} (manual): {loss:.4f}")
+                                return loss
+                        else:
+                            # Use last line
+                            parts = lines[-1].split()
+                            if len(parts) >= 6:
+                                loss = float(parts[5])
+                                logging.info(f"[Client {self.rank}] Loss from last epoch (manual): {loss:.4f}")
+                                return loss
             
-            # Method 3: Use last known loss
-            logging.warning(f"[Client {self.rank}] No loss file found, using last known value")
+            # Fallback: training_losses.csv
+            loss_file = f'{saving_path}/run/train-client{self.rank}/training_losses.csv'
+            if os.path.exists(loss_file):
+                df = pd.read_csv(loss_file)
+                if len(df) > 0:
+                    # Take mean of last epoch's batches
+                    total_batches = len(df)
+                    total_epochs = nrounds * epochs
+                    batches_per_epoch = total_batches // total_epochs if total_epochs > 0 else total_batches
+                    
+                    # Get batches from last epoch
+                    start_idx = max(0, total_batches - batches_per_epoch)
+                    last_epoch_batches = df.iloc[start_idx:]
+                    
+                    if 'train/total_loss' in df.columns:
+                        avg_loss = last_epoch_batches['train/total_loss'].mean()
+                    elif 'train/box_loss' in df.columns:
+                        avg_loss = (
+                            last_epoch_batches['train/box_loss'].mean() +
+                            last_epoch_batches['train/obj_loss'].mean() +
+                            last_epoch_batches['train/cls_loss'].mean()
+                        )
+                    else:
+                        raise ValueError("No loss columns found")
+                    
+                    logging.info(f"[Client {self.rank}] Loss from CSV (last epoch avg): {avg_loss:.4f}")
+                    return float(avg_loss)
+            
+            # Last resort
+            logging.warning(f"[Client {self.rank}] No loss files found, using cached value")
             return self.last_training_loss if self.last_training_loss else 1.0
             
         except Exception as e:
@@ -1295,7 +1322,7 @@ class Client(Node):
             torch.save(self._ckpt, begin_weights)
             os.system(f'python {script_path} --resume {begin_weights}')
         
-        self.last_training_loss = self.extract_losses(saving_path, epochs=epochs)
+        self.last_training_loss = self.extract_losses(saving_path, epochs=epochs, nrounds=nrounds)
         logging.info(f"[Client {self.rank}] Training completed with loss: {self.last_training_loss:.4f}")
         
         new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=False)
