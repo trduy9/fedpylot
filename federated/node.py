@@ -1169,7 +1169,7 @@ class Client(Node):
             
     def extract_losses(self, saving_path: str, epochs: int, nrounds: int) -> float:
         """
-        Extract training loss from the last epoch of current round
+        Extract training loss from training_losses.csv (epoch-level, each row = 1 epoch)
         Args:
             saving_path: Path to training results
             epochs: Number of epochs per round
@@ -1179,103 +1179,119 @@ class Client(Node):
             Total training loss from the last epoch of current round
         """
         try:
-            results_file = f'{saving_path}/run/train-client{self.rank}/results.txt'
-            
-            if os.path.exists(results_file):
-                try:
-                    # Parse results.txt
-                    df_results = pd.read_csv(
-                        results_file, 
-                        sep=r'\s+', 
-                        header=None,
-                        names=['epoch', 'gpu_mem', 'box', 'obj', 'cls', 
-                            'total', 'labels', 'img_size']
-                    )
-                    
-                    if len(df_results) > 0:
-                        # Calculate the last epoch index of current round
-                        last_epoch_idx = nrounds * epochs - 1  # 0-indexed
-                        
-                        # Ensure index is valid
-                        if last_epoch_idx < len(df_results):
-                            loss = df_results.iloc[last_epoch_idx]['total']
-                            
-                            logging.info(
-                                f"[Client {self.rank}] Round {nrounds} - "
-                                f"Loss at epoch {last_epoch_idx}: {loss:.4f} "
-                                f"(box: {df_results.iloc[last_epoch_idx]['box']:.4f}, "
-                                f"obj: {df_results.iloc[last_epoch_idx]['obj']:.4f}, "
-                                f"cls: {df_results.iloc[last_epoch_idx]['cls']:.4f})"
-                            )
-                            return float(loss)
-                        else:
-                            # Fallback: take the last available epoch
-                            logging.warning(
-                                f"[Client {self.rank}] Expected epoch {last_epoch_idx} "
-                                f"but file only has {len(df_results)} epochs. Using last epoch."
-                            )
-                            loss = df_results.iloc[-1]['total']
-                            logging.info(f"[Client {self.rank}] Loss at last available epoch: {loss:.8f}")
-                            return float(loss)
-                        
-                except Exception as parse_err:
-                    logging.warning(f"[Client {self.rank}] Pandas parsing failed: {parse_err}")
-                    
-                    # Manual parsing fallback
-                    with open(results_file, 'r') as f:
-                        lines = [l.strip() for l in f.readlines() if l.strip()]
-                    
-                    if lines:
-                        last_epoch_idx = nrounds * epochs - 1
-                        
-                        if last_epoch_idx < len(lines):
-                            parts = lines[last_epoch_idx].split()
-                            if len(parts) >= 6:
-                                loss = float(parts[5])
-                                logging.info(f"[Client {self.rank}] Loss at epoch {last_epoch_idx} (manual): {loss:.4f}")
-                                return loss
-                        else:
-                            # Use last line
-                            parts = lines[-1].split()
-                            if len(parts) >= 6:
-                                loss = float(parts[5])
-                                logging.info(f"[Client {self.rank}] Loss from last epoch (manual): {loss:.4f}")
-                                return loss
-            
-            # Fallback: training_losses.csv
             loss_file = f'{saving_path}/run/train-client{self.rank}/training_losses.csv'
-            if os.path.exists(loss_file):
-                df = pd.read_csv(loss_file)
-                if len(df) > 0:
-                    # Take mean of last epoch's batches
-                    total_batches = len(df)
-                    total_epochs = nrounds * epochs
-                    batches_per_epoch = total_batches // total_epochs if total_epochs > 0 else total_batches
-                    
-                    # Get batches from last epoch
-                    start_idx = max(0, total_batches - batches_per_epoch)
-                    last_epoch_batches = df.iloc[start_idx:]
-                    
-                    if 'train/total_loss' in df.columns:
-                        avg_loss = last_epoch_batches['train/total_loss'].mean()
-                    elif 'train/box_loss' in df.columns:
-                        avg_loss = (
-                            last_epoch_batches['train/box_loss'].mean() +
-                            last_epoch_batches['train/obj_loss'].mean() +
-                            last_epoch_batches['train/cls_loss'].mean()
-                        )
-                    else:
-                        raise ValueError("No loss columns found")
-                    
-                    logging.info(f"[Client {self.rank}] Loss from CSV (last epoch avg): {avg_loss:.4f}")
-                    return float(avg_loss)
             
-            # Last resort
-            logging.warning(f"[Client {self.rank}] No loss files found, using cached value")
-            return self.last_training_loss if self.last_training_loss else 1.0
+            # Check file exists
+            if not os.path.exists(loss_file):
+                logging.error(f"[Client {self.rank}] training_losses.csv NOT FOUND: {loss_file}")
+                return self.last_training_loss if self.last_training_loss else 1.0
+            
+            # Read CSV
+            df = pd.read_csv(loss_file)
+            
+            # === DEBUG: Print CSV info ===
+            print(f"\n[DEBUG Client {self.rank}] training_losses.csv:")
+            print(f"  Shape: {df.shape}")
+            print(f"  Columns: {df.columns.tolist()}")
+            print(f"  Total epochs in file: {len(df)}")
+            
+            if len(df) == 0:
+                logging.error(f"[Client {self.rank}] CSV is empty!")
+                return self.last_training_loss if self.last_training_loss else 1.0
+            
+            print(f"\n  First few rows:")
+            print(df.head(3))
+            print(f"\n  Last few rows:")
+            print(df.tail(3))
+            
+            # Calculate the last epoch index of current round
+            # Example: nrounds=3, epochs=10 → last_epoch_idx = 3*10-1 = 29
+            last_epoch_idx = nrounds * epochs - 1
+            
+            print(f"\n[DEBUG Client {self.rank}] Target epoch:")
+            print(f"  nrounds={nrounds}, epochs={epochs}")
+            print(f"  last_epoch_idx={last_epoch_idx} (0-based)")
+            print(f"  CSV has {len(df)} rows")
+            
+            # Check if index is valid
+            if last_epoch_idx >= len(df):
+                logging.warning(
+                    f"[Client {self.rank}] Expected epoch {last_epoch_idx} "
+                    f"but CSV only has {len(df)} rows. Using last available."
+                )
+                last_epoch_idx = len(df) - 1
+            
+            # Get the row for target epoch
+            row = df.iloc[last_epoch_idx]
+            
+            print(f"\n[DEBUG Client {self.rank}] Row at index {last_epoch_idx}:")
+            print(row)
+            
+            # Extract loss from appropriate column
+            loss_col = None
+            loss_value = 0.0
+            
+            if 'train/total_loss' in df.columns:
+                loss_value = row['train/total_loss']
+                loss_col = 'train/total_loss'
+                
+            elif 'total_loss' in df.columns:
+                loss_value = row['total_loss']
+                loss_col = 'total_loss'
+                
+            elif 'train/box_loss' in df.columns:
+                # Sum components
+                loss_value = (
+                    row['train/box_loss'] +
+                    row['train/obj_loss'] +
+                    row['train/cls_loss']
+                )
+                loss_col = 'train/box_loss + train/obj_loss + train/cls_loss'
+                
+                print(f"  train/box_loss: {row['train/box_loss']:.6f}")
+                print(f"  train/obj_loss: {row['train/obj_loss']:.6f}")
+                print(f"  train/cls_loss: {row['train/cls_loss']:.6f}")
+                
+            elif 'box_loss' in df.columns:
+                # Sum components (without train/ prefix)
+                loss_value = (
+                    row['box_loss'] +
+                    row['obj_loss'] +
+                    row['cls_loss']
+                )
+                loss_col = 'box_loss + obj_loss + cls_loss'
+                
+                print(f"  box_loss: {row['box_loss']:.6f}")
+                print(f"  obj_loss: {row['obj_loss']:.6f}")
+                print(f"  cls_loss: {row['cls_loss']:.6f}")
+                
+            else:
+                logging.error(f"[Client {self.rank}] No recognized loss columns!")
+                print(f"  Available columns: {df.columns.tolist()}")
+                return self.last_training_loss if self.last_training_loss else 1.0
+            
+            print(f"\n[DEBUG Client {self.rank}] Loss extracted:")
+            print(f"  Column(s): {loss_col}")
+            print(f"  Loss value: {loss_value:.6f}")
+            print(f"  Loss type: {type(loss_value)}")
+            
+            # Check for NaN or invalid values
+            if pd.isna(loss_value):
+                logging.error(f"[Client {self.rank}] Loss is NaN!")
+                return self.last_training_loss if self.last_training_loss else 1.0
+            
+            if loss_value == 0.0:
+                logging.warning(f"[Client {self.rank}] Loss is exactly 0.0, might be invalid!")
+            
+            logging.info(
+                f"[Client {self.rank}] Round {nrounds} - "
+                f"Epoch {last_epoch_idx}: Loss={loss_value:.8f}"
+            )
+            
+            return float(loss_value)
             
         except Exception as e:
-            logging.error(f"[Client {self.rank}] Error extracting loss: {e}")
+            logging.error(f"[Client {self.rank}] Error extracting loss from CSV: {e}")
             import traceback
             traceback.print_exc()
             return self.last_training_loss if self.last_training_loss else 1.0

@@ -677,7 +677,6 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
     oort_start_round: round index (0-based) to start Oort selection. If 0 then Oort from round 0.
     """
 
-    print(len(clients))
     # Register clients to Oort if used
     if server.use_oort:
         for client in clients:
