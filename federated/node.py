@@ -1153,15 +1153,10 @@ class Client(Node):
         super().__init__(rank)
         self.__update = None
         self.nsamples = None
-        self.last_training_loss = None
 
     def get_update(self) -> dict:
         """Return the local update."""
-        return {
-            'weights': self.__update,
-            'loss': self.last_training_loss,
-            'samples': self.nsamples
-        }
+        return self.__update
 
     def set_weights(self, new_weights: dict, metadata: bool) -> None:
         """Set new weights."""
@@ -1220,7 +1215,7 @@ class Client(Node):
                                 f"but file only has {len(df_results)} epochs. Using last epoch."
                             )
                             loss = df_results.iloc[-1]['total']
-                            logging.info(f"[Client {self.rank}] Loss at last available epoch: {loss:.4f}")
+                            logging.info(f"[Client {self.rank}] Loss at last available epoch: {loss:.8f}")
                             return float(loss)
                         
                 except Exception as parse_err:
