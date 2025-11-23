@@ -755,27 +755,22 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
             updates.append(update)
             nsamples_list.append(client.nsamples)
             
-            client_loss = None
-            if isinstance(update, dict):
-                client_loss = update.get('loss')
-            # fallback if not present
-            if client_loss is None:
-            # Optionally try reading a file produced by client training, else fallback to small positive
-                client_loss = 0.5
-            client_losses.append(client_loss)
-            print(f"  Loss: {client_loss:.4f}")
-            print(f"  Duration: {train_duration:.2f}s")
-            print(f"  Samples: {client.nsamples}")
-
-            # Update Oort with real loss if possible
-            if server.use_oort and kround >= oort_start_round:
-                server.oort_sampler.update_client(
-                    client.rank,
-                    loss=client_loss,
-                    duration=train_duration,
-                    round_num=kround
+            try:
+                client_loss = client.extract_losses(
+                    saving_path=saving_path,
+                    epochs=epochs,
+                    nrounds=kround 
                 )
-            
+                client_losses.append(client_loss)
+                
+                print(f"  Loss: {client_loss:.8f}")
+                print(f"  Duration: {train_duration:.2f}s")
+                print(f"  Samples: {client.nsamples}")
+                
+            except Exception as e:
+                print(f"  Warning: Could not extract loss: {e}")
+                client_loss = 1.0  # Fallback
+                client_losses.append(client_loss)
 
         # Server aggregation
         print(f"\n--- Server Aggregation ---")
