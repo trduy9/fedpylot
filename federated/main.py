@@ -669,12 +669,14 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
                    saving_path: str, architecture: str, pretrained_weights: str,
                    data: str, bsz_train: int, bsz_val: int, imgsz: int,
                    conf_thres: float, iou_thres: float, cfg: str, hyp: str,
-                   workers: int, selection_ratio: float = 1.0, oort_start_round: int = 1) -> None:
+                   workers: int, selection_ratio: float = 1.0, oort_start_round: int = 0) -> None:
     """
     Orchestrate the federated learning experiment in a sequential manner.
 
     selection_ratio: fraction of clients to choose (e.g. 0.3)
-    oort_start_round: round index (0-based) to start Oort selection. If 0 then Oort from round 0.
+    oort_start_round: round index (0-based) to start Oort selection. 
+                      0 = start from first round (kround=0)
+                      10 = start from 11th round (kround=10)
     """
 
     # Register clients to Oort if used
@@ -734,7 +736,6 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
             print(f"\n--- Training Client {client.rank} ---")
             train_start = time.time()
 
-            # Call the client's train; adapt if your Client.train signature differs
             client.train(
                 nrounds=nrounds,
                 kround=kround,
@@ -754,30 +755,28 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
             update = client.get_update()
             updates.append(update)
             nsamples_list.append(client.nsamples)
-            
+
             try:
                 client_loss = client.extract_losses(
                     saving_path=saving_path,
                     epochs=epochs,
                     nrounds=kround 
                 )
-                client_losses.append(client_loss)
-                
-                utility = math.sqrt(max(client_loss, 1e-10)) * client.nsamples
-                client_utilities.append(utility)
-                
-                print(f"  Loss: {client_loss:.8f}")
-                print(f"  Duration: {train_duration:.4f}s")
-                print(f"  Samples: {client.nsamples}")
-                print(f"  Utility: {utility:.4f}")
-                
             except Exception as e:
                 print(f"  Warning: Could not extract loss: {e}")
-                client_loss = 1.0  # Fallback
-                client_losses.append(client_loss)
-                
-             # Update Oort 
-            if server.use_oort and kround >= (oort_start_round - 1):
+                client_loss = 2.0 
+            
+            client_losses.append(client_loss)
+            utility = math.sqrt(max(client_loss, 1e-10)) * client.nsamples
+            client_utilities.append(utility)
+            
+            print(f"  Loss: {client_loss:.8f}")
+            print(f"  Duration: {train_duration:.4f}s")
+            print(f"  Samples: {client.nsamples}")
+            print(f"  Utility: {utility:.4f}")
+            
+            # ✅ FIX: Update Oort with consistent condition
+            if server.use_oort and kround >= oort_start_round:
                 server.oort_sampler.update_client(
                     client.rank,
                     loss=client_loss,
