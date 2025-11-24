@@ -775,7 +775,6 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
             print(f"  Samples: {client.nsamples}")
             print(f"  Utility: {utility:.4f}")
             
-            # ✅ FIX: Update Oort with consistent condition
             if server.use_oort and kround >= oort_start_round:
                 server.oort_sampler.update_client(
                     client.rank,
