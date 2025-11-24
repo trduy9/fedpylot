@@ -1189,30 +1189,15 @@ class Client(Node):
             # Read CSV
             df = pd.read_csv(loss_file)
             
-            # === DEBUG: Print CSV info ===
-            print(f"\n[DEBUG Client {self.rank}] training_losses.csv:")
-            print(f"  Shape: {df.shape}")
-            print(f"  Columns: {df.columns.tolist()}")
-            print(f"  Total epochs in file: {len(df)}")
-            
             if len(df) == 0:
                 logging.error(f"[Client {self.rank}] CSV is empty!")
                 return self.last_training_loss if self.last_training_loss else 1.0
             
-            print(f"\n  First few rows:")
-            print(df.head(3))
-            print(f"\n  Last few rows:")
-            print(df.tail(3))
             
             # Calculate the last epoch index of current round
             # Example: nrounds=3, epochs=10 → last_epoch_idx = 3*10-1 = 29
             last_epoch_idx = nrounds * epochs - 1
-            
-            print(f"\n[DEBUG Client {self.rank}] Target epoch:")
-            print(f"  nrounds={nrounds}, epochs={epochs}")
-            print(f"  last_epoch_idx={last_epoch_idx} (0-based)")
-            print(f"  CSV has {len(df)} rows")
-            
+
             # Check if index is valid
             if last_epoch_idx >= len(df):
                 logging.warning(
@@ -1223,9 +1208,6 @@ class Client(Node):
             
             # Get the row for target epoch
             row = df.iloc[last_epoch_idx]
-            
-            print(f"\n[DEBUG Client {self.rank}] Row at index {last_epoch_idx}:")
-            print(row)
             
             # Extract loss from appropriate column
             loss_col = None
@@ -1259,7 +1241,6 @@ class Client(Node):
                     row['obj_loss'] +
                     row['cls_loss']
                 )
-                loss_col = 'box_loss + obj_loss + cls_loss'
                 
                 print(f"  box_loss: {row['box_loss']:.6f}")
                 print(f"  obj_loss: {row['obj_loss']:.6f}")
@@ -1269,11 +1250,6 @@ class Client(Node):
                 logging.error(f"[Client {self.rank}] No recognized loss columns!")
                 print(f"  Available columns: {df.columns.tolist()}")
                 return self.last_training_loss if self.last_training_loss else 1.0
-            
-            print(f"\n[DEBUG Client {self.rank}] Loss extracted:")
-            print(f"  Column(s): {loss_col}")
-            print(f"  Loss value: {loss_value:.6f}")
-            print(f"  Loss type: {type(loss_value)}")
             
             # Check for NaN or invalid values
             if pd.isna(loss_value):

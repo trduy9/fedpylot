@@ -643,7 +643,7 @@
 #     print("\nFederated learning completed!")
 
 
-# main.py
+import math
 import logging
 import time
 import argparse
@@ -728,6 +728,7 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
         nsamples_list = []
         client_durations = []
         client_losses = []
+        client_utilities = []
 
         for client in active_clients:
             print(f"\n--- Training Client {client.rank} ---")
@@ -762,9 +763,13 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
                 )
                 client_losses.append(client_loss)
                 
+                utility = math.sqrt(max(client_loss, 1e-10)) * client.nsamples
+                client_utilities.append(utility)
+                
                 print(f"  Loss: {client_loss:.8f}")
-                print(f"  Duration: {train_duration:.2f}s")
+                print(f"  Duration: {train_duration:.4f}s")
                 print(f"  Samples: {client.nsamples}")
+                print(f"  Utility: {utility:.4f}")
                 
             except Exception as e:
                 print(f"  Warning: Could not extract loss: {e}")
