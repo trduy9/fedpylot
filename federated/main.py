@@ -665,53 +665,207 @@ except Exception:
     predefined_clients_list = None
 
 
+# def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
+#                    saving_path: str, architecture: str, pretrained_weights: str,
+#                    data: str, bsz_train: int, bsz_val: int, imgsz: int,
+#                    conf_thres: float, iou_thres: float, cfg: str, hyp: str,
+#                    workers: int, selection_ratio: float = 1.0, oort_start_round: int = 0) -> None:
+#     """
+#     Orchestrate the federated learning experiment in a sequential manner.
+
+#     selection_ratio: fraction of clients to choose (e.g. 0.3)
+#     oort_start_round: round index (0-based) to start Oort selection. 
+#                       0 = start from first round (kround=0)
+#                       10 = start from 11th round (kround=10)
+#     """
+
+#     # Register clients to Oort if used
+#     if server.use_oort:
+#         for client in clients:
+#             server.oort_sampler.register_client(
+#                 client.rank,
+#                 client.nsamples,
+#                 duration=1.0  # initial estimate
+#             )
+
+#     # Server initializes model
+#     print("Initializing model on server...")
+#     server.initialize_model(pretrained_weights)
+#     server.post_init_update(data=data, cfg=cfg, hyp=hyp, imgsz=imgsz)
+
+#     total_clients = len(clients)
+#     print(f"[Main] total clients = {total_clients}")
+
+#     for kround in range(nrounds):
+#         print(f"\n{'='*50}")
+#         print(f"Round {kround + 1}/{nrounds}")
+#         print(f"{'='*50}")
+
+#         # Round 0: share initial weights with clients
+#         if kround == 0:
+#             initial_weights = server.get_weights(metadata=True)
+#             for client in clients:
+#                 client.set_weights(initial_weights, metadata=True)
+#                 client.post_init_update(data=data, cfg=cfg, hyp=hyp, imgsz=imgsz)
+
+#         # Determine active clients (Oort or all)
+#         if server.use_oort and kround >= oort_start_round:
+#             feasible = [c.rank for c in clients]
+#             num_to_select = max(1, int(total_clients * selection_ratio))
+#             print(f"[Oort] round={kround} selecting num_to_select={num_to_select}")
+#             selected_ranks = server.oort_sampler.select_clients(
+#                 num_clients=num_to_select,
+#                 feasible_clients=feasible,
+#                 round_num=kround
+#             )
+#             print(f"[Oort DEBUG] selected_ranks = {selected_ranks}")
+#             active_clients = [c for c in clients if c.rank in selected_ranks]
+#             print(f"[Oort] Selected {len(active_clients)}/{len(clients)} clients -> {[c.rank for c in active_clients]}")
+#         else:
+#             active_clients = clients
+#             if server.use_oort:
+#                 print(f"[Oort] Warmup/start phase (round {kround}): using all clients")
+
+#         updates = []
+#         nsamples_list = []
+#         client_durations = []
+#         client_losses = []
+#         client_utilities = []
+
+#         for client in active_clients:
+#             print(f"\n--- Training Client {client.rank} ---")
+#             train_start = time.time()
+
+#             client.train(
+#                 nrounds=nrounds,
+#                 kround=kround,
+#                 epochs=epochs,
+#                 architecture=architecture,
+#                 data=data,
+#                 bsz_train=bsz_train,
+#                 imgsz=imgsz,
+#                 cfg=cfg,
+#                 hyp=hyp,
+#                 workers=workers,
+#                 saving_path=saving_path
+#             )
+
+#             train_duration = time.time() - train_start
+#             client_durations.append(train_duration)
+#             update = client.get_update()
+#             updates.append(update)
+#             nsamples_list.append(client.nsamples)
+
+#             try:
+#                 client_loss = client.extract_losses(
+#                     saving_path=saving_path,
+#                     epochs=epochs,
+#                     nrounds=kround 
+#                 )
+#             except Exception as e:
+#                 print(f"  Warning: Could not extract loss: {e}")
+#                 client_loss = 2.0 
+            
+#             client_losses.append(client_loss)
+#             utility = math.sqrt(max(client_loss, 1e-10)) * client.nsamples
+#             client_utilities.append(utility)
+            
+#             print(f"  Loss: {client_loss:.8f}")
+#             print(f"  Duration: {train_duration:.4f}s")
+#             print(f"  Samples: {client.nsamples}")
+#             print(f"  Utility: {utility:.4f}")
+            
+#             if server.use_oort and kround >= oort_start_round:
+#                 server.oort_sampler.update_client(
+#                     client.rank,
+#                     loss=client_loss,
+#                     duration=train_duration,
+#                     round_num=kround
+#                 )
+
+#         # Server aggregation
+#         print(f"\n--- Server Aggregation ---")
+#         server.aggregate(updates, nsamples_list)
+#         server.reparameterize(architecture)
+
+#         # Server evaluation
+#         print(f"\n--- Server Evaluation ---")
+#         server.test(kround, saving_path, data, bsz_val, imgsz, conf_thres, iou_thres)
+
+#         # Broadcast new weights to all clients
+#         new_weights = server.get_weights(metadata=False)
+#         for client in clients:
+#             client.set_weights(new_weights, metadata=False)
+
 def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
                    saving_path: str, architecture: str, pretrained_weights: str,
                    data: str, bsz_train: int, bsz_val: int, imgsz: int,
                    conf_thres: float, iou_thres: float, cfg: str, hyp: str,
-                   workers: int, selection_ratio: float = 1.0, oort_start_round: int = 0) -> None:
+                   workers: int, selection_ratio: float = 1.0, 
+                   oort_start_round: int = 0, use_random: bool = False) -> None:
     """
-    Orchestrate the federated learning experiment in a sequential manner.
-
-    selection_ratio: fraction of clients to choose (e.g. 0.3)
-    oort_start_round: round index (0-based) to start Oort selection. 
-                      0 = start from first round (kround=0)
-                      10 = start from 11th round (kround=10)
+    Federated learning loop với Oort hoặc Random client selection.
+    
+    Args:
+        selection_ratio: Tỷ lệ clients được chọn mỗi round (0.0-1.0)
+        oort_start_round: Round bắt đầu dùng Oort (nếu use_oort=True)
+        use_random: Nếu True thì dùng random selection thay vì Oort
     """
-
+    
     # Register clients to Oort if used
-    if server.use_oort:
+    if server.use_oort and not use_random:
         for client in clients:
             server.oort_sampler.register_client(
                 client.rank,
                 client.nsamples,
-                duration=1.0  # initial estimate
+                duration=1.0
             )
-
+    
     # Server initializes model
     print("Initializing model on server...")
     server.initialize_model(pretrained_weights)
     server.post_init_update(data=data, cfg=cfg, hyp=hyp, imgsz=imgsz)
-
+    
     total_clients = len(clients)
-    print(f"[Main] total clients = {total_clients}")
-
+    print(f"[Main] Total clients = {total_clients}")
+    
+    if use_random:
+        print(f"[Main] Selection method: RANDOM")
+        print(f"[Main] Selection ratio = {selection_ratio} ({int(total_clients * selection_ratio)} clients per round)")
+    elif server.use_oort:
+        print(f"[Main] Selection method: OORT")
+        print(f"[Main] Oort start round: {oort_start_round}")
+        print(f"[Main] Selection ratio = {selection_ratio}")
+    else:
+        print(f"[Main] Selection method: ALL CLIENTS")
+    
     for kround in range(nrounds):
         print(f"\n{'='*50}")
         print(f"Round {kround + 1}/{nrounds}")
         print(f"{'='*50}")
-
+        
         # Round 0: share initial weights with clients
         if kround == 0:
             initial_weights = server.get_weights(metadata=True)
             for client in clients:
                 client.set_weights(initial_weights, metadata=True)
                 client.post_init_update(data=data, cfg=cfg, hyp=hyp, imgsz=imgsz)
-
-        # Determine active clients (Oort or all)
-        if server.use_oort and kround >= oort_start_round:
+        
+        # ==========================================
+        # CLIENT SELECTION
+        # ==========================================
+        num_to_select = max(1, int(total_clients * selection_ratio))
+        
+        if use_random:
+            # RANDOM SELECTION
+            selected_clients = random.sample(clients, num_to_select)
+            selected_ranks = [c.rank for c in selected_clients]
+            print(f"[Random Selection] Selected {len(selected_clients)}/{total_clients} clients")
+            print(f"[Random Selection] Selected client ranks: {selected_ranks}")
+            
+        elif server.use_oort and kround >= oort_start_round:
+            # OORT SELECTION
             feasible = [c.rank for c in clients]
-            num_to_select = max(1, int(total_clients * selection_ratio))
             print(f"[Oort] round={kround} selecting num_to_select={num_to_select}")
             selected_ranks = server.oort_sampler.select_clients(
                 num_clients=num_to_select,
@@ -719,23 +873,25 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
                 round_num=kround
             )
             print(f"[Oort DEBUG] selected_ranks = {selected_ranks}")
-            active_clients = [c for c in clients if c.rank in selected_ranks]
-            print(f"[Oort] Selected {len(active_clients)}/{len(clients)} clients -> {[c.rank for c in active_clients]}")
+            selected_clients = [c for c in clients if c.rank in selected_ranks]
+            print(f"[Oort] Selected {len(selected_clients)}/{len(clients)} clients -> {[c.rank for c in selected_clients]}")
         else:
-            active_clients = clients
+            # ALL CLIENTS (warmup or no selection)
+            selected_clients = clients
             if server.use_oort:
                 print(f"[Oort] Warmup/start phase (round {kround}): using all clients")
-
+        # ==========================================
+        
         updates = []
         nsamples_list = []
         client_durations = []
         client_losses = []
         client_utilities = []
-
-        for client in active_clients:
+        
+        for client in selected_clients:
             print(f"\n--- Training Client {client.rank} ---")
             train_start = time.time()
-
+            
             client.train(
                 nrounds=nrounds,
                 kround=kround,
@@ -749,53 +905,59 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
                 workers=workers,
                 saving_path=saving_path
             )
-
+            
             train_duration = time.time() - train_start
             client_durations.append(train_duration)
             update = client.get_update()
             updates.append(update)
             nsamples_list.append(client.nsamples)
-
-            try:
-                client_loss = client.extract_losses(
-                    saving_path=saving_path,
-                    epochs=epochs,
-                    nrounds=kround 
-                )
-            except Exception as e:
-                print(f"  Warning: Could not extract loss: {e}")
-                client_loss = 2.0 
             
-            client_losses.append(client_loss)
-            utility = math.sqrt(max(client_loss, 1e-10)) * client.nsamples
-            client_utilities.append(utility)
-            
-            print(f"  Loss: {client_loss:.8f}")
-            print(f"  Duration: {train_duration:.4f}s")
-            print(f"  Samples: {client.nsamples}")
-            print(f"  Utility: {utility:.4f}")
-            
-            if server.use_oort and kround >= oort_start_round:
-                server.oort_sampler.update_client(
-                    client.rank,
-                    loss=client_loss,
-                    duration=train_duration,
-                    round_num=kround
-                )
-
+            # Extract loss for Oort (if used)
+            if server.use_oort and not use_random:
+                try:
+                    client_loss = client.extract_losses(
+                        saving_path=saving_path,
+                        epochs=epochs,
+                        nrounds=kround 
+                    )
+                except Exception as e:
+                    print(f"  Warning: Could not extract loss: {e}")
+                    client_loss = 2.0 
+                
+                client_losses.append(client_loss)
+                utility = math.sqrt(max(client_loss, 1e-10)) * client.nsamples
+                client_utilities.append(utility)
+                
+                print(f"  Loss: {client_loss:.8f}")
+                print(f"  Duration: {train_duration:.4f}s")
+                print(f"  Samples: {client.nsamples}")
+                print(f"  Utility: {utility:.4f}")
+                
+                if kround >= oort_start_round:
+                    server.oort_sampler.update_client(
+                        client.rank,
+                        loss=client_loss,
+                        duration=train_duration,
+                        round_num=kround
+                    )
+            else:
+                print(f"  Duration: {train_duration:.4f}s")
+                print(f"  Samples: {client.nsamples}")
+        
         # Server aggregation
         print(f"\n--- Server Aggregation ---")
         server.aggregate(updates, nsamples_list)
         server.reparameterize(architecture)
-
+        
         # Server evaluation
         print(f"\n--- Server Evaluation ---")
         server.test(kround, saving_path, data, bsz_val, imgsz, conf_thres, iou_thres)
-
-        # Broadcast new weights to all clients
+        
+        # Broadcast new weights to ALL clients (not just selected ones)
         new_weights = server.get_weights(metadata=False)
         for client in clients:
             client.set_weights(new_weights, metadata=False)
+
 
 
 def gather_analytics(saving_path: str, clients: list, server=None) -> None:
@@ -859,6 +1021,7 @@ if __name__ == "__main__":
     parser.add_argument('--workers', type=int, default=4, help='number of workers')
 
     # Oort / selection args
+    parser.add_argument('--use-random', action='store_true', help=' RANDOM client selection')
     parser.add_argument('--use-oort', action='store_true', help='Enable Oort client selection')
     parser.add_argument('--selection-ratio', type=float, default=1.0, help='fraction of clients selected each round (if using Oort)')
     parser.add_argument('--oort-start-round', type=int, default=1, help='round index to start Oort client selection')
