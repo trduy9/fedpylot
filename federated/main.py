@@ -650,6 +650,7 @@ import argparse
 import os
 import shutil
 import sys
+import random
 sys.path.append('yolov7')
 
 import pandas as pd
