@@ -852,9 +852,7 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
                 client.set_weights(initial_weights, metadata=True)
                 client.post_init_update(data=data, cfg=cfg, hyp=hyp, imgsz=imgsz)
         
-        # ==========================================
-        # CLIENT SELECTION
-        # ==========================================
+
         num_to_select = max(1, int(total_clients * selection_ratio))
         
         if use_random:
