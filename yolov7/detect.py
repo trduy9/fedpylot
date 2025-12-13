@@ -58,7 +58,18 @@ def detect(save_img=False):
 
     # Get names and colors
     names = model.module.names if hasattr(model, 'module') else model.names
-    colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
+    # colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
+    colors = {
+        0: (255,   0,   0),   # Car            - đỏ
+        1: (255, 165,   0),   # Van            - cam
+        2: (  0,   0, 255),   # Truck          - xanh dương
+        3: (  0, 255,   0),   # Pedestrian     - xanh lá
+        4: (203, 192, 255),   # Person_sitting - hồng nhạt
+        5: (255, 255,   0),   # Cyclist        - vàng
+        6: (255,   0, 255),   # Tram           - tím
+        7: (128, 128, 128),   # Misc           - xám
+    }
+
 
     # Run inference
     if device.type != 'cpu':
