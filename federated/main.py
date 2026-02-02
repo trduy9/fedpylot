@@ -149,13 +149,13 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
                     client_loss = 2.0 
                 
                 client_losses.append(client_loss)
-                utility = math.sqrt(max(client_loss, 1e-10)) * client.nsamples
-                client_utilities.append(utility)
+                # utility = math.sqrt(max(client_loss, 1e-10)) * client.nsamples
+                # client_utilities.append(utility)
                 
                 print(f"  Loss: {client_loss:.8f}")
                 print(f"  Duration: {train_duration:.4f}s")
                 print(f"  Samples: {client.nsamples}")
-                print(f"  Utility: {utility:.4f}")
+                # print(f"  Utility: {utility:.4f}")
                 
                 if kround >= oort_start_round:
                     server.oort_sampler.update_client(
