@@ -3,7 +3,8 @@ import math
 from random import Random
 from collections import OrderedDict
 import logging
-
+import os
+import csv
 class OortSelector:
     """
     Oort client selection - Full implementation matching original Oort
@@ -17,9 +18,9 @@ class OortSelector:
         self.training_round = 0
         
         # Exploration parameters
-        self.exploration = args.get('exploration_factor', 0.9)
+        self.exploration = args.get('exploration_factor', 1.0)
         self.decay_factor = args.get('exploration_decay', 0.95)
-        self.exploration_min = args.get('exploration_min', 0.2)
+        self.exploration_min = args.get('exploration_min', 0.45)
         self.alpha = args.get('exploration_alpha', 0.3)  # For staleness-based exploration
         
         # Random number generator
@@ -28,13 +29,13 @@ class OortSelector:
         self.unexplored = set()
         
         # System utility parameters
-        self.round_threshold = args.get('round_threshold', 10)
-        self.round_penalty = args.get('round_penalty', 2.0)
+        self.round_threshold = args.get('round_threshold', 60)
+        self.round_penalty = args.get('round_penalty', 0.0)
         self.round_prefer_duration = float('inf')
         
         # Pacer mechanism parameters
-        self.pacer_step = args.get('pacer_step', 20)
-        self.pacer_delta = args.get('pacer_delta', 5)
+        self.pacer_step = args.get('pacer_step', 5)
+        self.pacer_delta = args.get('pacer_delta', 10)
         self.last_util_record = 0
         
         # Selection parameters
@@ -43,7 +44,7 @@ class OortSelector:
         self.clip_bound = args.get('clip_bound', 0.95)
         
         # Blacklist parameters
-        self.blacklist_rounds = args.get('blacklist_rounds', -1)
+        self.blacklist_rounds = args.get('blacklist_rounds', 12)
         self.blacklist_max_len = args.get('blacklist_max_len', 0.3)
         self.blacklist = set()
         
@@ -58,6 +59,140 @@ class OortSelector:
         self.args = args
         
         np.random.seed(sample_seed)
+        
+        self.utility_log_path = args.get('utility_log_path', 'client_utilities.csv')
+        self.log_detailed = args.get('log_detailed', True)  
+        self.round_utilities = {} 
+        self._init_utility_log()
+    
+    def _init_utility_log(self):
+    
+        log_dir = os.path.dirname(self.utility_log_path)
+        if log_dir: 
+            os.makedirs(log_dir, exist_ok=True)
+        
+        with open(self.utility_log_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            if self.log_detailed:
+                writer.writerow([
+                    'round', 'client_id', 'raw_reward', 'normalized_reward', 
+                    'exploration_bonus', 'system_penalty', 'utility_score',
+                    'duration', 'staleness', 'count', 'is_selected', 'selection_type'
+                ])
+            else:
+                writer.writerow(['round', 'client_id', 'utility_score', 'is_selected'])
+    
+    def _log_round_utilities(self, cur_time, scores, exploit_scores, explore_scores,
+                             selected_clients, min_reward, range_reward):
+    
+        selected_set = set(selected_clients)
+        exploit_set = set(self.exploitClients)
+        explore_set = set(self.exploreClients)
+        
+        with open(self.utility_log_path, 'a', newline='') as f:
+            writer = csv.writer(f)
+            
+            # Log exploitation clients
+            for clientId, score_info in exploit_scores.items():
+                is_selected = 1 if clientId in selected_set else 0
+                selection_type = 'exploit' if clientId in exploit_set else 'none'
+                if clientId in explore_set:
+                    selection_type = 'explore'
+                
+                if self.log_detailed:
+                    writer.writerow([
+                        cur_time,
+                        clientId,
+                        round(score_info['raw_reward'], 6),
+                        round(score_info['normalized_reward'], 6),
+                        round(score_info['exploration_bonus'], 6),
+                        round(score_info['system_penalty'], 6),
+                        round(score_info['final_score'], 6),
+                        round(score_info['duration'], 4),
+                        score_info['staleness'],
+                        score_info['count'],
+                        is_selected,
+                        selection_type
+                    ])
+                else:
+                    writer.writerow([
+                        cur_time, clientId, 
+                        round(score_info['final_score'], 6), 
+                        is_selected
+                    ])
+            
+           
+            for clientId, score_info in explore_scores.items():
+                if clientId in exploit_scores:
+                    continue  
+                    
+                is_selected = 1 if clientId in selected_set else 0
+                selection_type = 'explore' if clientId in explore_set else 'none'
+                
+                if self.log_detailed:
+                    writer.writerow([
+                        cur_time,
+                        clientId,
+                        round(score_info['raw_reward'], 6),
+                        0.0,  # Chua có normalized reward
+                        0.0,  # Chua có exploration bonus
+                        round(score_info['system_penalty'], 6),
+                        round(score_info['init_score'], 6),
+                        round(score_info['duration'], 4),
+                        0,  # Staleness = 0 cho unexplored
+                        0,  # Count = 0 cho unexplored
+                        is_selected,
+                        selection_type
+                    ])
+                else:
+                    writer.writerow([
+                        cur_time, clientId,
+                        round(score_info['init_score'], 6),
+                        is_selected
+                    ])
+        
+        # Luu vào memory d? có th? export format khác
+        self.round_utilities[cur_time] = {
+            'exploit_scores': exploit_scores,
+            'explore_scores': explore_scores,
+            'selected': list(selected_clients)
+        }
+    
+    def export_utility_pivot(self, output_path='client_utilities_pivot.csv'):
+        
+        if not self.round_utilities:
+            logging.warning("No utility data to export")
+            return
+        
+        all_clients = set()
+        for round_data in self.round_utilities.values():
+            all_clients.update(round_data['exploit_scores'].keys())
+            all_clients.update(round_data['explore_scores'].keys())
+        all_clients = sorted(all_clients)
+        
+        with open(output_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            
+            # Header
+            header = ['round'] + [f'client_{cid}' for cid in all_clients]
+            writer.writerow(header)
+            
+            # Data
+            for round_num in sorted(self.round_utilities.keys()):
+                row = [round_num]
+                round_data = self.round_utilities[round_num]
+                
+                for cid in all_clients:
+                    score = ''
+                    if cid in round_data['exploit_scores']:
+                        score = round(round_data['exploit_scores'][cid]['final_score'], 6)
+                    elif cid in round_data['explore_scores']:
+                        score = round(round_data['explore_scores'][cid]['init_score'], 6)
+                    row.append(score)
+                
+                writer.writerow(row)
+        
+        logging.info(f"Exported pivot utility to {output_path}")
     
     def register_client(self, clientId, feedbacks):
         """
@@ -370,6 +505,61 @@ class OortSelector:
                     f"exploreLen={exploreLen}, unexplored={len(self.unexplored)}, "
                     f"exploration={self.exploration:.3f}, round_threshold={self.round_threshold}, "
                     f"top_scores={top_k_score}")
+        
+        # ============ LOG UTILITIES ============
+        exploit_scores = {}
+        for key in orderedKeys:
+            if self.totalArms[key]['count'] > 0:
+                creward = min(self.totalArms[key]['reward'], clip_value)
+                normalized_reward = (creward - min_reward) / float(range_reward)
+                exploration_bonus = math.sqrt(
+                    0.1 * math.log(cur_time) / self.totalArms[key]['time_stamp']
+                ) if cur_time > 0 and self.totalArms[key]['time_stamp'] > 0 else 0
+                
+                clientDuration = self.totalArms[key]['duration']
+                system_penalty = 1.0
+                if clientDuration > self.round_prefer_duration:
+                    system_penalty = (float(self.round_prefer_duration) / max(1e-4, clientDuration)) ** self.round_penalty
+                
+                exploit_scores[key] = {
+                    'raw_reward': self.totalArms[key]['reward'],
+                    'clipped_reward': creward,
+                    'normalized_reward': normalized_reward,
+                    'exploration_bonus': exploration_bonus,
+                    'system_penalty': system_penalty,
+                    'final_score': scores.get(key, 0),
+                    'duration': clientDuration,
+                    'staleness': cur_time - self.totalArms[key]['time_stamp'],
+                    'count': self.totalArms[key]['count']
+                }
+        
+        explore_scores = {}
+        for cl in _unexplored:
+            raw_reward = self.totalArms[cl]['reward']
+            clientDuration = self.totalArms[cl]['duration']
+            system_penalty = 1.0
+            if clientDuration > self.round_prefer_duration:
+                system_penalty = (float(self.round_prefer_duration) / max(1e-4, clientDuration)) ** self.round_penalty
+            
+            explore_scores[cl] = {
+                'raw_reward': raw_reward,
+                'system_penalty': system_penalty,
+                'init_score': raw_reward * system_penalty,
+                'duration': clientDuration
+            }
+        
+    
+        self._log_round_utilities(
+            cur_time=cur_time,
+            scores=scores,
+            exploit_scores=exploit_scores,
+            explore_scores=explore_scores,
+            selected_clients=pickedClients,
+            min_reward=min_reward,
+            range_reward=range_reward
+        )
+        # ========================================
+        
         
         return pickedClients[:num_clients]
     

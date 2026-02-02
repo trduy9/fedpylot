@@ -1,7 +1,8 @@
 from .oort_selector import OortSelector
 import logging
 import math
-
+import os
+import csv
 class OortClientSampler:
     """
     Wrapper for Oort client selection - Full implementation
@@ -32,19 +33,21 @@ class OortClientSampler:
         
         # Initialize Oort selector with full configuration
         selector_config = {
-            'exploration_factor': self.args.get('exploration_factor', 0.9),
+            'exploration_factor': self.args.get('exploration_factor', 1.0),
             'exploration_decay': self.args.get('exploration_decay', 0.95),
-            'exploration_min': self.args.get('exploration_min', 0.2),
+            'exploration_min': self.args.get('exploration_min', 0.45),
             'exploration_alpha': self.args.get('exploration_alpha', 0.3),
-            'round_threshold': self.args.get('round_threshold', 10),
-            'round_penalty': self.args.get('round_penalty', 2.0),
+            'round_threshold': self.args.get('round_threshold', 60),
+            'round_penalty': self.args.get('round_penalty', 0.0),
             'cut_off_util': self.args.get('cut_off_util', 0.7),
             'sample_window': self.args.get('sample_window', 5.0),
             'clip_bound': self.args.get('clip_bound', 0.95),
-            'pacer_step': self.args.get('pacer_step', 20),
-            'pacer_delta': self.args.get('pacer_delta', 5),
-            'blacklist_rounds': self.args.get('blacklist_rounds', -1),
+            'pacer_step': self.args.get('pacer_step', 5),
+            'pacer_delta': self.args.get('pacer_delta', 10),
+            'blacklist_rounds': self.args.get('blacklist_rounds', 12),
             'blacklist_max_len': self.args.get('blacklist_max_len', 0.3),
+            'utility_log_path': 'experiments/run/local-analytics/client_utilities.csv',
+            'log_detailed': True
         }
         
         self.selector = OortSelector(
@@ -64,7 +67,7 @@ class OortClientSampler:
         
         logging.info("OortClientSampler initialized with full Oort implementation")
     
-    def register_client(self, client_id, data_size, duration=1.0, 
+    def register_client(self, client_id, data_size, duration=2000, 
                        compute_speed=None, bandwidth=None):
         """
         Register client with system and data statistics
@@ -92,7 +95,7 @@ class OortClientSampler:
         # Register with Oort selector
         feedbacks = {
             'reward': initial_reward,
-            'duration': duration / 60.0  # Convert to minutes for consistency
+            'duration': duration
         }
         self.selector.register_client(client_id, feedbacks)
         
@@ -123,7 +126,7 @@ class OortClientSampler:
         reward = math.sqrt(loss) * data_size
         
         # Normalize duration to minutes
-        duration_minutes = duration / 60.0
+        duration_minutes = duration
         
         # Prepare feedback for selector
         feedbacks = {
@@ -158,9 +161,8 @@ class OortClientSampler:
             duration: Duration in seconds
         """
         if client_id in self.client_info:
-            duration_minutes = duration / 60.0
             self.client_info[client_id]['duration'] = duration
-            self.selector.update_duration(client_id, duration_minutes)
+            self.selector.update_duration(client_id, duration)
     
     def select_clients(self, num_clients, feasible_clients=None, round_num=None):
         """
