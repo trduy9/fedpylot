@@ -109,7 +109,7 @@ def federated_loop(server: Server, clients: list, nrounds: int, epochs: int,
         nsamples_list = []
         client_durations = []
         client_losses = []
-        client_utilities = []
+        # client_utilities = []
         
         for client in selected_clients:
             print(f"\n--- Training Client {client.rank} ---")
