@@ -1,4 +1,4 @@
-# # FedPylot by Cyprien Quéméneur, GPL-3.0 license
+# # FedPylot by Cyprien QuÃ©mÃ©neur, GPL-3.0 license
 
 # import copy
 # import os
@@ -282,14 +282,14 @@
 #         self._ckpt = torch.load(weights, map_location=self.device, weights_only=False)
         
 #         # ckpt = torch.load(weights, map_location=self.device, weights_only=False)
-#         # print(f"Checkpoint keys: {list(ckpt.keys())}")  # ← Xem file có key 'model' không
+#         # print(f"Checkpoint keys: {list(ckpt.keys())}")  # â† Xem file cÃ³ key 'model' khÃ´ng
 #         # self._ckpt = ckpt
         
 #         # ckpt = torch.load(weights, map_location=self.device, weights_only=False)
 #         # if 'model' not in ckpt:
 #         #     print(f"[WARN] Pretrained weights at {weights} has no 'model' key. Wrapping it.")
 #         #     # Load YOLO model manually
-#         #     model = Model(cfg='/kaggle/working/fedpylot/yolov7/cfg/training/yolov7.yaml', ch=3, nc=8)  # chỉnh lại theo dataset bạn
+#         #     model = Model(cfg='/kaggle/working/fedpylot/yolov7/cfg/training/yolov7.yaml', ch=3, nc=8)  # chá»‰nh láº¡i theo dataset báº¡n
 #         #     model.load_state_dict(ckpt)
 #         #     ckpt = {'model': model}
 #         # self._ckpt = ckpt
@@ -486,7 +486,7 @@
 #     def set_weights(self, encrypted_data: tuple[bytes, bytes, bytes], metadata: bool) -> None:
 #         new_weights_encrypted, tag, nonce = encrypted_data
 #         new_weights = self._symmetric_decryption(new_weights_encrypted, tag, nonce)
-#         print(f"[Client {self.rank}] 🔑 Received model from server. Metadata={metadata}, "
+#         print(f"[Client {self.rank}] ðŸ”‘ Received model from server. Metadata={metadata}, "
 #             f"Keys: {list(new_weights['model'].state_dict().keys())[:3] if metadata else len(new_weights)}")
 #         if metadata:
 #             self._ckpt = new_weights
@@ -543,7 +543,7 @@
 #         # if 'model' in new_ckpt:
 #         #     w_t = new_ckpt['model'].state_dict()
 #         # else:
-#         #     w_t = new_ckpt  # new_ckpt chỉ chứa state_dict
+#         #     w_t = new_ckpt  # new_ckpt chá»‰ chá»©a state_dict
 
 #         delta_it = copy.deepcopy(w_t)
 #         for key in delta_it.keys():
@@ -629,7 +629,7 @@
 #     #         return
 #     #     else:
 #     #         print(f"[CLIENT {self.rank}] Weights file found. Loading...")
-#     #     # ============= HẾT DEBUG CODE =============
+#     #     # ============= Háº¾T DEBUG CODE =============
         
 #     #     new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=False)
 #     #     print(f"[CLIENT {self.rank}] Checkpoint keys: {list(new_ckpt.keys())}")
@@ -665,14 +665,14 @@
 #     #     else:
 #     #         raise ValueError(f'Model architecture {architecture} not recognized.')
 
-#     #     # Đường log file riêng cho mỗi client
+#     #     # ÄÆ°á»ng log file riÃªng cho má»—i client
 #     #     log_file = f'{saving_path}/train_client{self.rank}_log.txt'
 
 #     #     if kround == 0:
 #     #         begin_weights = f'{saving_path}/weights/train-kround{kround}-client{self.rank}.pt'
 #     #         torch.save(self._ckpt, begin_weights)
 
-#     #         # Lệnh train
+#     #         # Lá»‡nh train
 #     #         cmd = (
 #     #             f'python {script_path}'
 #     #             f' --client-rank {self.rank}'
@@ -695,9 +695,9 @@
 #     #         cmd = f'python {script_path} --resume {begin_weights}'
 
 #     #     # ------------------------
-#     #     # 📺 Chạy và in realtime log
+#     #     # ðŸ“º Cháº¡y vÃ  in realtime log
 #     #     # ------------------------
-#     #     print(f"\n[Client {self.rank}] 🔥 Starting YOLOv7 training...\n")
+#     #     print(f"\n[Client {self.rank}] ðŸ”¥ Starting YOLOv7 training...\n")
 #     #     with open(log_file, 'a') as f_log:
 #     #         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
 #     #                                 stderr=subprocess.STDOUT, text=True, bufsize=1)
@@ -708,10 +708,10 @@
 #     #             f_log.write(line_stripped + '\n')
 #     #         process.wait()
 
-#     #     print(f"\n✅ Training done for client {self.rank}, log saved at {log_file}\n")
+#     #     print(f"\nâœ… Training done for client {self.rank}, log saved at {log_file}\n")
 
 #     #     # ------------------------
-#     #     # 📦 Load lại trọng số và tính delta
+#     #     # ðŸ“¦ Load láº¡i trá»ng sá»‘ vÃ  tÃ­nh delta
 #     #     # ------------------------
 #     #     new_ckpt = torch.load(end_weights, map_location=self.device, weights_only=False)
 #     #     w_it = new_ckpt['model'].state_dict()
@@ -733,14 +733,14 @@
 #     #     delta_t = copy.deepcopy(self._ckpt['model'].state_dict())
 
 #     #     for key in delta_t.keys():
-#     #         # Lọc những client có chứa key này
+#     #         # Lá»c nhá»¯ng client cÃ³ chá»©a key nÃ y
 #     #         valid_updates = [(delta_it[key], ni) for delta_it, ni in zip(updates, nsamples_list) if key in delta_it]
 
 #     #         if valid_updates:
 #     #             delta_it_weighted = [w * (ni / n) for w, ni in valid_updates]
 #     #             delta_t[key] = torch.sum(torch.stack(delta_it_weighted), dim=0)
 #     #         else:
-#     #             # Chỉ cảnh báo, không thay đổi gì
+#     #             # Chá»‰ cáº£nh bÃ¡o, khÃ´ng thay Ä‘á»•i gÃ¬
 #     #             print(f"[WARN] Key '{key}' not found in any client update.")
 #     #             delta_t[key] = torch.zeros_like(delta_t[key])
 
@@ -759,7 +759,7 @@
 #     #         print(f"[DEBUG] Client 0 keys: {len(updates[0].keys())}")
 #     #         print(f"[DEBUG] First 5 client keys: {list(updates[0].keys())[:5]}")
             
-#     #         # Kiểm tra common keys
+#     #         # Kiá»ƒm tra common keys
 #     #         common = set(delta_t.keys()) & set(updates[0].keys())
 #     #         print(f"[DEBUG] Common keys: {len(common)}")
 #     #         print(f"[DEBUG] Server only: {set(delta_t.keys()) - set(updates[0].keys())}")
@@ -824,7 +824,7 @@ import torch
 import yaml
 import math
 import pandas as pd
-
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "yolov7"))
 from models.yolo import Model
 from utils.torch_utils import intersect_dicts, is_parallel, select_device
 os.environ['WANDB_MODE'] = 'disabled' 
@@ -1008,7 +1008,7 @@ class Server(Node):
         self.use_oort = use_oort
         if use_oort:
             self.oort_sampler = OortClientSampler({})
-            logging.info("✓ Oort client selection enabled")
+            logging.info("âœ“ Oort client selection enabled")
         
         if self.server_opt == 'fedavgm':
             self.beta = beta
@@ -1195,7 +1195,7 @@ class Client(Node):
             
             
             # Calculate the last epoch index of current round
-            # Example: nrounds=3, epochs=10 → last_epoch_idx = 3*10-1 = 29
+            # Example: nrounds=3, epochs=10 â†’ last_epoch_idx = 3*10-1 = 29
             last_epoch_idx = nrounds * epochs - 1
 
             # Check if index is valid
@@ -1284,6 +1284,12 @@ class Client(Node):
             script_path = './yolov7/train_aux.py'
         else:
             raise ValueError(f'Unknown architecture: {architecture}')
+            
+        # Build freeze argument
+        # freeze_arg = ''
+        # if freeze is not None:
+            # freeze_layers = ' '.join(map(str, freeze))
+            # freeze_arg = f' --freeze {freeze_layers}'
         
         if kround == 0:
             begin_weights = f'{saving_path}/weights/train-kround{kround}-client{self.rank}.pt'
@@ -1303,11 +1309,13 @@ class Client(Node):
                 f' --project {saving_path}/run/'
                 f' --name train-client{self.rank}'
                 f' --notest'
+               # f' --freeze 50'
             )
         else:
             begin_weights = f'{saving_path}/run/train-client{self.rank}/weights/last.pt'
             torch.save(self._ckpt, begin_weights)
-            os.system(f'python {script_path} --resume {begin_weights}')
+            os.system(
+                f'python {script_path} --resume {begin_weights}')
         
         self.last_training_loss = self.extract_losses(saving_path, epochs=epochs, nrounds=nrounds)
         logging.info(f"[Client {self.rank}] Training completed with loss: {self.last_training_loss:.4f}")
