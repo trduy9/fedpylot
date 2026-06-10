@@ -659,6 +659,7 @@ from scipy.stats import linregress
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 import yaml
+from sklearn.mixture import GaussianMixture
 
 
 from node import Client, Server
@@ -921,6 +922,67 @@ def detect_noisy_clients(
     print(f"{'='*60}\n")
  
     return noisy_ranks, clean_ranks
+
+
+def filter_noisy_samples_gmm(noisy_ranks: list, saving_path: str, output_dir: str) -> dict:  
+    """  
+    Với mỗi noisy client, đọc per_sample_box_loss.csv, tính mean loss per image  
+    qua tất cả các round/epoch, rồi dùng GMM 2 components để phân loại clean/noisy samples.  
+      
+    Returns:  
+        dict mapping rank -> {'clean': [paths], 'noisy': [paths]}  
+    """  
+    os.makedirs(output_dir, exist_ok=True)  
+    results = {}  
+  
+    for rank in noisy_ranks:  
+        csv_path = f'{saving_path}/run/train-client{rank}/per_sample_box_loss.csv'  
+        if not os.path.exists(csv_path):  
+            print(f"  [WARN] Client {rank}: per_sample_box_loss.csv not found, skip.")  
+            continue  
+  
+        df = pd.read_csv(csv_path)  
+        if df.empty:  
+            print(f"  [WARN] Client {rank}: per_sample_box_loss.csv is empty, skip.")  
+            continue  
+  
+        # Compute mean box loss per image of epoch/batch  
+        mean_loss = df.groupby('image_path')['box_loss'].mean().reset_index()  
+        mean_loss.columns = ['image_path', 'mean_box_loss']  
+  
+        X = mean_loss['mean_box_loss'].values.reshape(-1, 1)  
+  
+        if len(X) < 2:  
+            print(f"  [WARN] Client {rank}: not enough samples for GMM, skip.")  
+            continue  
+  
+        # Fit GMM 2 components  
+        gmm = GaussianMixture(n_components=2, random_state=42, max_iter=200)  
+        gmm.fit(X)  
+        labels = gmm.predict(X)  
+  
+        # Component has higher mean = noisy  
+        comp_means = gmm.means_.flatten()  
+        noisy_comp = int(comp_means.argmax())  
+        clean_comp = 1 - noisy_comp  
+  
+        mean_loss['gmm_label'] = labels  
+        mean_loss['sample_type'] = mean_loss['gmm_label'].map(  
+            {noisy_comp: 'NOISY', clean_comp: 'CLEAN'}  
+        )  
+  
+        # Save results to CSV file
+        out_path = os.path.join(output_dir, f'sample_gmm_client{rank}.csv')  
+        mean_loss.to_csv(out_path, index=False)  
+  
+        clean_paths = mean_loss[mean_loss['sample_type'] == 'CLEAN']['image_path'].tolist()  
+        noisy_paths = mean_loss[mean_loss['sample_type'] == 'NOISY']['image_path'].tolist()  
+        results[rank] = {'clean': clean_paths, 'noisy': noisy_paths}  
+  
+        print(f"  [OK] Client {rank}: {len(clean_paths)} clean, {len(noisy_paths)} noisy samples → {out_path}")  
+        print(f"       GMM means: clean={comp_means[clean_comp]:.5f}, noisy={comp_means[noisy_comp]:.5f}")  
+  
+    return results
  
  
 

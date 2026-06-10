@@ -594,7 +594,9 @@ class ComputeLossOTA:
         lcls, lbox, lobj = torch.zeros(1, device=device), torch.zeros(1, device=device), torch.zeros(1, device=device)
         bs, as_, gjs, gis, targets, anchors = self.build_targets(p, targets, imgs)
         pre_gen_gains = [torch.tensor(pp.shape, device=device)[[3, 2, 3, 2]] for pp in p] 
-    
+
+        batch_size = p[0].shape[0]
+        per_image_lbox = torch.zeros(batch_size, device=device)
 
         # Losses
         for i, pi in enumerate(p):  # layer index, layer predictions
@@ -615,6 +617,11 @@ class ComputeLossOTA:
                 selected_tbox[:, :2] -= grid
                 iou = bbox_iou(pbox.T, selected_tbox, x1y1x2y2=False, CIoU=True)  # iou(prediction, target)
                 lbox += (1.0 - iou).mean()  # iou loss
+                
+                for img_idx in range(batch_size):
+                    mask = b(b == img_idx)
+                    if mask.sum() > 0:
+                        per_image_lbox[img_idx] += (1.0 - iou[mask]).mean()
 
                 # Objectness
                 tobj[b, a, gj, gi] = (1.0 - self.gr) + self.gr * iou.detach().clamp(0).type(tobj.dtype)  # iou ratio
@@ -638,12 +645,13 @@ class ComputeLossOTA:
         if self.autobalance:
             self.balance = [x / self.balance[self.ssi] for x in self.balance]
         lbox *= self.hyp['box']
+        per_image_lbox *= self.hyp['box']
         lobj *= self.hyp['obj']
         lcls *= self.hyp['cls']
         bs = tobj.shape[0]  # batch size
 
         loss = lbox + lobj + lcls
-        return loss * bs, torch.cat((lbox, lobj, lcls, loss)).detach()
+        return loss * bs, torch.cat((lbox, lobj, lcls, loss)).detach(), per_image_lbox.detach()
 
     def build_targets(self, p, targets, imgs):
         
