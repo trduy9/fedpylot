@@ -307,6 +307,11 @@ def train(hyp, opt, device, tb_writer=None):
                 f'Logging results to {save_dir}\n'
                 f'Starting training for {epochs} epochs...')
     torch.save(model, wdir / 'init.pt')
+    
+    per_sample_csv = f'{save_dir}/per_sample_box_loss.csv'  
+    if not os.path.exists(per_sample_csv):  
+        pd.DataFrame(columns=['epoch', 'batch', 'image_path', 'box_loss']).to_csv(per_sample_csv, index=False)
+    
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         model.train()
 
@@ -364,8 +369,9 @@ def train(hyp, opt, device, tb_writer=None):
                 pred = model(imgs)  # forward
                 if 'loss_ota' not in hyp or hyp['loss_ota'] == 1:
                     loss, loss_items = compute_loss_ota(pred, targets.to(device), imgs)  # loss scaled by batch_size
+                    per_image_lbox = None
                 else:
-                    loss, loss_items = compute_loss(pred, targets.to(device))  # loss scaled by batch_size
+                    loss, loss_items, per_image_lbox = compute_loss(pred, targets.to(device))  # loss scaled by batch_size
                 if rank != -1:
                     loss *= opt.world_size  # gradient averaged between devices in DDP mode
                 if opt.quad:
@@ -389,6 +395,19 @@ def train(hyp, opt, device, tb_writer=None):
                 s = ('%10s' * 2 + '%10.4g' * 6) % (
                     '%g/%g' % (epoch, epochs - 1), mem, *mloss, targets.shape[0], imgs.shape[-1])
                 pbar.set_description(s)
+                
+                if per_image_lbox is not None and rank in [-1, 0]:
+                    rows = []
+                    for si, (path, bloss) in enumerate(zip(pahts, per_image_lbox)):
+                        rows.append({
+                            'epoch': epoch,
+                            'batch': i,
+                            'image_path': path,
+                            'box_loss': bloss.item()
+                        })
+                    df_batch = pd.DataFrame(rows)
+                    df_batch.to_csv(per_sample_csv, mode='a', header=False, index=False)
+
 
                 # Plot
                 if plots and ni < 10:
